@@ -1,0 +1,19 @@
+runtime: nodejs20
+env: standard
+instance_class: F1  # Free tier instance
+
+handlers:
+  - url: /.*
+    script: auto
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 1  # Free tier limit
+  max_concurrent_requests: 10
+
+env_variables:
+  NODE_ENV: "production"
+  # Add other environment variables your app needs
+
+# Be sure this matches your main file or npm start script
+entrypoint: npm run start

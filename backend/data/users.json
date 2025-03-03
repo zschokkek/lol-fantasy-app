@@ -1,0 +1,48 @@
+[
+  {
+    "teams": [
+      "team_1740709098210"
+    ],
+    "leagues": [
+      "league_1740947031830",
+      "league_1740969775595"
+    ],
+    "isAdmin": false
+  },
+  {
+    "id": "3ea3e207-ec49-40da-83b8-285b16d89a99",
+    "username": "shark",
+    "email": "sharkwalk2000@gmail.com",
+    "passwordHash": "$2b$10$FXSXzKDzbNnWw5FLwHemdOl3G65w4a0LtNhpAx16BRuwY.qyTSqAC",
+    "teams": [],
+    "leagues": [],
+    "isAdmin": false
+  },
+  {
+    "id": "271752ab-dac9-440c-942a-7d542e885704",
+    "username": "a@a.com",
+    "email": "a@a.com",
+    "passwordHash": "$2a$10$7CGaq3TFBqu3HoSlyCK7Yeb4Sk0ipc0YFHltA46DLnY5iaKSodji2",
+    "teams": [],
+    "leagues": [],
+    "isAdmin": false
+  },
+  {
+    "id": "43c14dea-717e-46aa-b118-593cf11fcf61",
+    "username": "poop",
+    "email": "poop@poop.com",
+    "passwordHash": "$2a$10$5KL063VRscpkSkUUG/Ikj.NFb3sIvSKZmmtB8csIU75lcNtupPa.q",
+    "teams": [],
+    "leagues": [],
+    "isAdmin": false
+  },
+  {
+    "id": "0ddb7702-b15d-48f6-ab1e-f4007cfb93d6",
+    "username": "poop2",
+    "email": "poop2@poop.com",
+    "passwordHash": "$2a$10$e7vo9hBZx72onoObFaeyX.WoPpKGc512YlCwjK.K7fpoQkdtn6/a.",
+    "teams": [],
+    "leagues": [],
+    "isAdmin": false
+  }
+]

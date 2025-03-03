@@ -1,0 +1,17 @@
+[
+  {
+    "id": "team_1740709098210",
+    "name": "Shark's Team",
+    "players": {
+      "TOP": null,
+      "JUNGLE": null,
+      "MID": null,
+      "ADC": null,
+      "SUPPORT": null,
+      "FLEX": null,
+      "BENCH": []
+    },
+    "totalPoints": 0,
+    "weeklyPoints": {}
+  }
+]

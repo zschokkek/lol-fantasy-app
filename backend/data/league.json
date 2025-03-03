@@ -1,0 +1,15 @@
+{
+  "id": "league_1740946882429",
+  "name": "LTA Fantasy League",
+  "maxTeams": 12,
+  "teamIds": [
+    "team_1740709098210"
+  ],
+  "playerPoolIds": [],
+  "currentWeek": 0,
+  "weeksPerSeason": 0,
+  "memberIds": [],
+  "creatorId": null,
+  "description": "",
+  "isPublic": true
+}
