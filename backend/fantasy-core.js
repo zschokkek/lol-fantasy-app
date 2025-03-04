@@ -128,7 +128,7 @@ class Player {
   
     /**
      * Remove a player from the team
-     * @param {Player} playerId - ID of player to remove
+     * @param {String} playerId - ID of player to remove
      */
     removePlayer(playerId) {
       // Check all positions
@@ -200,6 +200,7 @@ class Player {
       this.creatorId = options.creatorId || null;
       this.description = options.description || '';
       this.isPublic = options.isPublic !== undefined ? options.isPublic : true;
+      this.regions = options.regions || ['LCS', 'LEC']; // Default regions
     }
   
     /**
@@ -823,9 +824,16 @@ class Player {
       }
       
       // Cache miss, filter and store in cache
-      const filteredPlayers = this.players.filter(player => 
-        player.region.toUpperCase() === region.toUpperCase()
-      );
+      const filteredPlayers = this.players.filter(player => {
+        // Normalize region names to handle different formats
+        const playerRegion = player.region.toUpperCase();
+        const targetRegion = region.toUpperCase();
+        
+        // Check if player region contains target region or vice versa
+        // Also handle special case where homeLeague matches region code
+        return playerRegion === targetRegion || 
+               (player.homeLeague && player.homeLeague.toUpperCase() === targetRegion);
+      });
       
       this.cache.byRegion[region] = filteredPlayers;
       this.cache.lastUpdated = Date.now();
@@ -1064,7 +1072,8 @@ class Player {
         id: leagueData.id || `league_${Date.now()}`,
         creatorId: leagueData.creatorId,
         description: leagueData.description,
-        isPublic: leagueData.isPublic
+        isPublic: leagueData.isPublic,
+        regions: leagueData.regions || ['LCS', 'LEC'] // Load regions from data
       });
       
       // Set current week if available
@@ -1089,8 +1098,33 @@ class Player {
         }
       }
       
-      // Add players to pool
-      if (leagueData.playerPoolIds) {
+      // Populate player pool based on regions
+      if (league.regions && league.regions.length > 0) {
+        let allPlayersForLeague = [];
+        
+        // Fetch players for each region and combine them
+        for (const region of league.regions) {
+          const regionPlayers = playerService.getPlayersByRegion(region);
+          if (regionPlayers && regionPlayers.length > 0) {
+            allPlayersForLeague = [...allPlayersForLeague, ...regionPlayers];
+          }
+        }
+        
+        // Remove duplicates by ID
+        const uniquePlayers = [];
+        const uniqueIds = new Set();
+        
+        for (const player of allPlayersForLeague) {
+          if (!uniqueIds.has(player.id)) {
+            uniqueIds.add(player.id);
+            uniquePlayers.push(player);
+          }
+        }
+        
+        league.addPlayersToPool(uniquePlayers);
+      }
+      // For backward compatibility
+      else if (leagueData.playerPoolIds) {
         const players = leagueData.playerPoolIds.map(id => 
           playerService.getPlayerById(id)
         ).filter(player => player !== undefined);
@@ -1411,41 +1445,6 @@ class Player {
       }
     } else {
       loadSamplePlayers();
-    }
-    
-    // Helper function to load sample data
-    function loadSamplePlayers() {
-      // Sample player data for LTA North/South regions
-      const samplePlayers = [
-        // North Region Players
-        { id: "n1", name: "NorthTop", position: "TOP", team: "North Tigers", region: "NORTH" },
-        { id: "n2", name: "NorthJungle", position: "JUNGLE", team: "North Tigers", region: "NORTH" },
-        { id: "n3", name: "NorthMid", position: "MID", team: "North Tigers", region: "NORTH" },
-        { id: "n4", name: "NorthADC", position: "ADC", team: "North Tigers", region: "NORTH" },
-        { id: "n5", name: "NorthSupport", position: "SUPPORT", team: "North Tigers", region: "NORTH" },
-        
-        { id: "n6", name: "NorthWolves1", position: "TOP", team: "North Wolves", region: "NORTH" },
-        { id: "n7", name: "NorthWolves2", position: "JUNGLE", team: "North Wolves", region: "NORTH" },
-        { id: "n8", name: "NorthWolves3", position: "MID", team: "North Wolves", region: "NORTH" },
-        { id: "n9", name: "NorthWolves4", position: "ADC", team: "North Wolves", region: "NORTH" },
-        { id: "n10", name: "NorthWolves5", position: "SUPPORT", team: "North Wolves", region: "NORTH" },
-        
-        // South Region Players
-        { id: "s1", name: "SouthTop", position: "TOP", team: "South Eagles", region: "SOUTH" },
-        { id: "s2", name: "SouthJungle", position: "JUNGLE", team: "South Eagles", region: "SOUTH" },
-        { id: "s3", name: "SouthMid", position: "MID", team: "South Eagles", region: "SOUTH" },
-        { id: "s4", name: "SouthADC", position: "ADC", team: "South Eagles", region: "SOUTH" },
-        { id: "s5", name: "SouthSupport", position: "SUPPORT", team: "South Eagles", region: "SOUTH" },
-        
-        { id: "s6", name: "SouthLions1", position: "TOP", team: "South Lions", region: "SOUTH" },
-        { id: "s7", name: "SouthLions2", position: "JUNGLE", team: "South Lions", region: "SOUTH" },
-        { id: "s8", name: "SouthLions3", position: "MID", team: "South Lions", region: "SOUTH" },
-        { id: "s9", name: "SouthLions4", position: "ADC", team: "South Lions", region: "SOUTH" },
-        { id: "s10", name: "SouthLions5", position: "SUPPORT", team: "South Lions", region: "SOUTH" }
-      ];
-      
-      // Load player data
-      playerService.loadPlayersFromData(samplePlayers);
     }
     
     // Create some fantasy teams

@@ -324,10 +324,23 @@ const LeagueDetail = () => {
           gap={{ base: 4, md: 0 }}
         >
           <Box>
-            <Heading size="xl" fontWeight="extrabold" mb={2} color="white">{league.name}</Heading>
-            <Text color="gray.300" mb={{ base: 4, md: 0 }}>
-              {league.description || 'No description available'}
-            </Text>
+            <Heading size="xl" mb={2}>{league.name}</Heading>
+            <Text color="gray.400">Created by {league.creatorId}</Text>
+            {league.description && <Text mt={2}>{league.description}</Text>}
+            
+            {/* Display the regions */}
+            {league.regions && league.regions.length > 0 && (
+              <Box mt={3}>
+                <Text fontWeight="semibold" mb={1}>Regions:</Text>
+                <HStack spacing={2}>
+                  {league.regions.map((region, idx) => (
+                    <Badge key={idx} colorScheme="teal" fontSize="sm" px={2} py={1} borderRadius="full">
+                      {region}
+                    </Badge>
+                  ))}
+                </HStack>
+              </Box>
+            )}
           </Box>
           
           {!isUserMember ? (
@@ -411,7 +424,8 @@ const LeagueDetail = () => {
             <TabList mb={8}>
               <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Teams</Tab>
               <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Standings</Tab>
-              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Schedule</Tab>
+              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Matchups</Tab>
+              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Draft</Tab>
             </TabList>
             
             <TabPanels>
@@ -493,7 +507,7 @@ const LeagueDetail = () => {
               <TabPanel px={0}>
                 <Box bg="gray.800" p={6} rounded="lg" borderWidth="1px" borderColor="gray.700">
                   <Flex justify="space-between" align="center" mb={6}>
-                    <Text fontSize="xl" fontWeight="bold" color="white">Week {currentWeek} Matchups</Text>
+                    <Text fontSize="xl" fontWeight="bold" color="white">Matchups for Week {currentWeek}</Text>
                     <HStack>
                       <Button 
                         size="sm" 
@@ -573,6 +587,23 @@ const LeagueDetail = () => {
                       <Text>No matchups scheduled for this week</Text>
                     </Box>
                   )}
+                </Box>
+              </TabPanel>
+              
+              <TabPanel px={0}>
+                <Box bg="gray.800" p={6} rounded="lg" borderWidth="1px" borderColor="gray.700">
+                  <Flex direction="column" align="center" justify="center" py={8}>
+                    <Icon as={CalendarIcon} boxSize={12} color="gray.500" mb={4} />
+                    <Heading size="md" mb={3} color="white">Draft</Heading>
+                    <Text color="gray.400" textAlign="center" maxW="md" mb={6}>
+                      The draft for this league has not been scheduled yet. Once scheduled, you'll be able to participate here.
+                    </Text>
+                    {league.memberIds?.includes(user.id) && (
+                      <Button colorScheme="teal" size="lg" as={RouterLink} to={`/draft?leagueId=${league.id}`}>
+                        View Draft Details
+                      </Button>
+                    )}
+                  </Flex>
                 </Box>
               </TabPanel>
             </TabPanels>

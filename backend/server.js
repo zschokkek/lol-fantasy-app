@@ -1,12 +1,12 @@
 // backend/server.js
 const express = require('express');
 const bcrypt = require('bcryptjs');
-
 const cors = require('cors');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs').promises;
+const bodyParser = require('body-parser');
 
 // Load environment variables
 dotenv.config();
@@ -29,8 +29,15 @@ const {
 } = require('./fantasy-core');
 
 // Middleware
-app.use(express.json());
+app.use(express.json({
+  type: ['application/json', 'text/plain'],
+  strict: false
+}));
 app.use(morgan('dev'));
+
+// Additional body parsers for different content types
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.text());
 
 // Update your CORS settings in server.js
 app.use(cors({
@@ -253,18 +260,33 @@ async function loadSamplePlayers() {
     // Fallback to default sample players if there's an error
     console.log('DEBUG: Using fallback sample players');
     const samplePlayers = [
-      // Sample Players for each league
-      { id: "l1", name: "LCKTop1", position: "TOP", team: "T1", region: "KOREA", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-      { id: "l2", name: "LCKJungle1", position: "JUNGLE", team: "T1", region: "KOREA", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-      { id: "l3", name: "LCKMid1", position: "MID", team: "T1", region: "KOREA", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-      { id: "l4", name: "LCKADC1", position: "ADC", team: "T1", region: "KOREA", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-      { id: "l5", name: "LCKSupport1", position: "SUPPORT", team: "T1", region: "KOREA", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
+      // LCK (Korea)
+      { id: "lck1", name: "LCKTop1", position: "TOP", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
+      { id: "lck2", name: "LCKJungle1", position: "JUNGLE", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
+      { id: "lck3", name: "LCKMid1", position: "MID", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
+      { id: "lck4", name: "LCKADC1", position: "ADC", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
+      { id: "lck5", name: "LCKSupport1", position: "SUPPORT", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
       
-      { id: "e1", name: "LECTop1", position: "TOP", team: "G2 Esports", region: "EUROPE", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
-      { id: "e2", name: "LECJungle1", position: "JUNGLE", team: "G2 Esports", region: "EUROPE", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
+      // LEC (Europe)
+      { id: "lec1", name: "LECTop1", position: "TOP", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
+      { id: "lec2", name: "LECJungle1", position: "JUNGLE", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
+      { id: "lec3", name: "LECMid1", position: "MID", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
+      { id: "lec4", name: "LECADC1", position: "ADC", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
+      { id: "lec5", name: "LECSupport1", position: "SUPPORT", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
       
-      { id: "p1", name: "LPLTop1", position: "TOP", team: "JD Gaming", region: "CHINA", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
-      { id: "p2", name: "LPLJungle1", position: "JUNGLE", team: "JD Gaming", region: "CHINA", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 }
+      // LPL (China)
+      { id: "lpl1", name: "LPLTop1", position: "TOP", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
+      { id: "lpl2", name: "LPLJungle1", position: "JUNGLE", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
+      { id: "lpl3", name: "LPLMid1", position: "MID", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
+      { id: "lpl4", name: "LPLADC1", position: "ADC", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
+      { id: "lpl5", name: "LPLSupport1", position: "SUPPORT", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
+      
+      // LCS (North America)
+      { id: "lcs1", name: "LCSTop1", position: "TOP", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
+      { id: "lcs2", name: "LCSJungle1", position: "JUNGLE", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
+      { id: "lcs3", name: "LCSMid1", position: "MID", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
+      { id: "lcs4", name: "LCSADC1", position: "ADC", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
+      { id: "lcs5", name: "LCSSupport1", position: "SUPPORT", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 }
     ];
     
     // Load player data
@@ -307,24 +329,25 @@ async function saveJsonFile(filePath, data) {
 
 // Helper function to save league data
 async function saveLeagueData() {
-  if (!mainLeague) return false;
+  const allLeagues = leagueService.getAllLeagues();
   
-  const leagueData = {
-    id: mainLeague.id || `league_${Date.now()}`,
-    name: mainLeague.name,
-    maxTeams: mainLeague.maxTeams,
-    teamIds: mainLeague.teams.map(team => team.id),
-    playerPoolIds: mainLeague.playerPool.map(player => player.id),
-    currentWeek: mainLeague.currentWeek,
-    weeksPerSeason: mainLeague.schedule.length,
-    memberIds: mainLeague.memberIds || [],
-    creatorId: mainLeague.creatorId,
-    description: mainLeague.description || '',
-    isPublic: mainLeague.isPublic !== undefined ? mainLeague.isPublic : true
-    // We don't save the schedule - it will be regenerated
-  };
+  // Format leagues for storage
+  const leaguesData = allLeagues.map(league => ({
+    id: league.id,
+    name: league.name,
+    maxTeams: league.maxTeams,
+    teamIds: league.teams.map(team => typeof team === 'object' ? team.id : team),
+    regions: league.regions || ['LTA North', 'LTA South'], // Store regions instead of playerPoolIds
+    currentWeek: league.currentWeek || 1,
+    weeksPerSeason: league.schedule ? league.schedule.length : 10,
+    memberIds: league.memberIds || [],
+    creatorId: league.creatorId,
+    description: league.description || '',
+    isPublic: league.isPublic !== undefined ? league.isPublic : true
+  }));
   
-  return await saveJsonFile(LEAGUE_FILE, leagueData);
+  console.log(`Saving ${leaguesData.length} leagues to ${LEAGUE_FILE}`);
+  return await saveJsonFile(LEAGUE_FILE, leaguesData);
 }
 
 // API ENDPOINTS
@@ -628,7 +651,7 @@ app.get('/api/leagues/:id', (req, res) => {
 
 // Create a new league
 app.post('/api/leagues', auth, (req, res) => {
-  const { name, maxTeams, description, isPublic } = req.body;
+  const { name, maxTeams, description, isPublic, regions } = req.body;
   
   if (!name) {
     return res.status(400).json({ message: 'League name is required' });
@@ -638,7 +661,8 @@ app.post('/api/leagues', auth, (req, res) => {
   const league = leagueService.createLeague(name, maxTeams || 12, {
     creatorId: req.user.id,
     description,
-    isPublic: isPublic === undefined ? true : isPublic
+    isPublic: isPublic === undefined ? true : isPublic,
+    regions: regions || ['LCS', 'LEC'] // Default to North America and Europe if not specified
   });
   
   // Add creator as first member

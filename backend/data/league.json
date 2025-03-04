@@ -8,7 +8,9 @@
   "playerPoolIds": [],
   "currentWeek": 0,
   "weeksPerSeason": 0,
-  "memberIds": [],
+  "memberIds": [
+    null
+  ],
   "creatorId": null,
   "description": "",
   "isPublic": true

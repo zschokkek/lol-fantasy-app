@@ -111,9 +111,31 @@ const Navbar = () => {
         px={4}
         py={3}
       >
-        <Heading size="md" as={RouterLink} to="/" color="white">
-          <Box as="span" color="teal.300">Fantasy</Box> LoL
-        </Heading>
+        <Flex alignItems="center">
+          <Heading size="md" as={RouterLink} to="/" color="white">
+            <Box as="span" color="teal.300">Fantasy</Box> LoL
+          </Heading>
+          
+          {selectedLeague && (
+            <Flex
+              alignItems="center"
+              ml={3}
+              pl={3}
+              borderLeftWidth="1px"
+              borderColor="gray.600"
+            >
+              <Text 
+                color="purple.300" 
+                fontWeight="medium" 
+                fontSize="md"
+                display={{ base: 'none', sm: 'block' }}
+              >
+                {selectedLeague.name}
+              </Text>
+            </Flex>
+          )}
+        </Flex>
+        
         <Spacer />
         
         {/* Desktop Navigation */}
@@ -155,7 +177,7 @@ const Navbar = () => {
                 )}
                 <MenuItem 
                   _hover={{ bg: 'gray.600' }} 
-                  color="white" 
+                  color="gray.200" 
                   as={RouterLink} 
                   to="/profile"
                 >
@@ -163,7 +185,7 @@ const Navbar = () => {
                 </MenuItem>
                 <MenuItem 
                   _hover={{ bg: 'gray.600' }} 
-                  color="white"
+                  color="gray.200"
                   onClick={handleLogout}
                 >
                   Logout

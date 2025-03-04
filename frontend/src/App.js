@@ -28,7 +28,7 @@ function App() {
         <ApiProvider>
           <LeagueProvider>
             <Router>
-              <Box minH="100vh" bg="gray.900" color="white">
+              <Box minH="100vh" bg="gray.900" color="white" overflowX="hidden" overscrollBehavior="none">
                 <Navbar />
                 <Box 
                   maxW="container.xl" 
