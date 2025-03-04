@@ -7,4 +7,4 @@
 5. ULTRA IMPORTANT: FIGURE HOW TO SCRAPE LTA DATA
     Live data will be hard
 6. Trading
-7. No
+7. Fix webhooks
