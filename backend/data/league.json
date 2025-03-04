@@ -1,17 +1,68 @@
-{
-  "id": "league_1740946882429",
-  "name": "LTA Fantasy League",
-  "maxTeams": 12,
-  "teamIds": [
-    "team_1740709098210"
-  ],
-  "playerPoolIds": [],
-  "currentWeek": 0,
-  "weeksPerSeason": 0,
-  "memberIds": [
-    null
-  ],
-  "creatorId": null,
-  "description": "",
-  "isPublic": true
-}
+[
+  {
+    "id": "league_1740946882429",
+    "name": "LTA Fantasy League",
+    "maxTeams": 12,
+    "teamIds": [
+      "team_1740709098210"
+    ],
+    "regions": [
+      "LCS",
+      "LEC"
+    ],
+    "currentWeek": 1,
+    "weeksPerSeason": 0,
+    "memberIds": [],
+    "creatorId": null,
+    "description": "",
+    "isPublic": true
+  },
+  {
+    "id": "league_1741110260567",
+    "name": "test league",
+    "maxTeams": 12,
+    "teamIds": [],
+    "regions": [
+      "LCS",
+      "LEC"
+    ],
+    "currentWeek": 1,
+    "weeksPerSeason": 0,
+    "memberIds": [],
+    "creatorId": null,
+    "description": "fun league",
+    "isPublic": true
+  },
+  {
+    "id": "league_1741111565838",
+    "name": "test league 2",
+    "maxTeams": 12,
+    "teamIds": [],
+    "regions": [
+      "LCS",
+      "LEC"
+    ],
+    "currentWeek": 1,
+    "weeksPerSeason": 0,
+    "memberIds": [],
+    "creatorId": null,
+    "description": "more test",
+    "isPublic": true
+  },
+  {
+    "id": "league_1741118736677",
+    "name": "test 3",
+    "maxTeams": 12,
+    "teamIds": [],
+    "regions": [
+      "LCS",
+      "LEC"
+    ],
+    "currentWeek": 1,
+    "weeksPerSeason": 0,
+    "memberIds": [],
+    "creatorId": null,
+    "description": "another test",
+    "isPublic": true
+  }
+]

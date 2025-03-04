@@ -44,6 +44,7 @@ app.use(cors({
     origin: 'http://localhost:3000', // Replace with your frontend URL
     credentials: true
   }));
+  
 // Initialize services
 const riotApiService = new RiotApiService(process.env.RIOT_API_KEY);
 const playerService = new PlayerService(riotApiService);
@@ -131,9 +132,27 @@ async function initializeData() {
     console.log('DEBUG: League data loaded or not found');
     
     if (leagueData) {
-      console.log(`Loading league "${leagueData.name}" from disk`);
-      mainLeague = leagueService.loadLeagueFromData(leagueData, teamService, playerService);
-      console.log('DEBUG: League loaded from disk');
+      console.log(`Loading ${Array.isArray(leagueData) ? leagueData.length : 1} leagues from disk`);
+      
+      // Check if leagueData is an array (multiple leagues) or a single league object
+      if (Array.isArray(leagueData)) {
+        // Load each league from the array
+        leagueData.forEach(league => {
+          console.log(`Loading league "${league.name}" from disk`);
+          leagueService.loadLeagueFromData(league, teamService, playerService);
+        });
+        
+        // Set mainLeague to the first one for backward compatibility
+        if (leagueData.length > 0) {
+          mainLeague = leagueService.getLeagueById(leagueData[0].id);
+        }
+      } else {
+        // Single league object (older format)
+        console.log(`Loading single league "${leagueData.name}" from disk`);
+        mainLeague = leagueService.loadLeagueFromData(leagueData, teamService, playerService);
+      }
+      
+      console.log('DEBUG: League(s) loaded from disk');
     } else {
       console.log('No league data found, creating default league');
       mainLeague = leagueService.createLeague('LTA Fantasy League', 12);
@@ -329,25 +348,78 @@ async function saveJsonFile(filePath, data) {
 
 // Helper function to save league data
 async function saveLeagueData() {
+  console.log('DEBUG: Starting saveLeagueData function');
   const allLeagues = leagueService.getAllLeagues();
+  console.log(`DEBUG: Got ${allLeagues.length} leagues from leagueService`);
   
   // Format leagues for storage
-  const leaguesData = allLeagues.map(league => ({
-    id: league.id,
-    name: league.name,
-    maxTeams: league.maxTeams,
-    teamIds: league.teams.map(team => typeof team === 'object' ? team.id : team),
-    regions: league.regions || ['LTA North', 'LTA South'], // Store regions instead of playerPoolIds
-    currentWeek: league.currentWeek || 1,
-    weeksPerSeason: league.schedule ? league.schedule.length : 10,
-    memberIds: league.memberIds || [],
-    creatorId: league.creatorId,
-    description: league.description || '',
-    isPublic: league.isPublic !== undefined ? league.isPublic : true
-  }));
+  const leaguesData = allLeagues.map(league => {
+    console.log(`DEBUG: Processing league ${league.id} - ${league.name}`);
+    console.log(`DEBUG: League memberIds before saving: [${league.memberIds}]`);
+    
+    // Filter out null values from memberIds
+    const validMemberIds = Array.isArray(league.memberIds) 
+      ? league.memberIds.filter(id => id !== null && id !== undefined)
+      : [];
+      
+    console.log(`DEBUG: Filtered memberIds: [${validMemberIds}]`);
+    
+    return {
+      id: league.id,
+      name: league.name,
+      maxTeams: league.maxTeams,
+      teamIds: league.teams ? league.teams.map(team => typeof team === 'object' ? team.id : team) : [],
+      regions: league.regions || ['LCS', 'LEC'],
+      currentWeek: league.currentWeek || 1,
+      weeksPerSeason: league.schedule ? league.schedule.length : 10,
+      memberIds: validMemberIds,
+      creatorId: league.creatorId,
+      description: league.description || '',
+      isPublic: league.isPublic !== undefined ? league.isPublic : true
+    };
+  });
   
-  console.log(`Saving ${leaguesData.length} leagues to ${LEAGUE_FILE}`);
+  console.log(`DEBUG: Formatted ${leaguesData.length} leagues for storage`);
+  console.log(`DEBUG: Saving leagues to ${LEAGUE_FILE}`);
   return await saveJsonFile(LEAGUE_FILE, leaguesData);
+}
+
+// One-time function to fix existing league data with null memberIds
+async function fixLeagueData() {
+  console.log('DEBUG: Fixing existing league data with null memberIds');
+  try {
+    // Load current league data
+    const leagueData = await loadJsonFile(LEAGUE_FILE);
+    
+    if (!leagueData || !Array.isArray(leagueData)) {
+      console.log('DEBUG: No league data found or not an array');
+      return;
+    }
+    
+    // Fix each league
+    const fixedLeagueData = leagueData.map(league => {
+      // Remove null memberIds
+      const memberIds = Array.isArray(league.memberIds) 
+        ? league.memberIds.filter(id => id !== null && id !== undefined)
+        : [];
+      
+      // If creator exists but not in memberIds, add them
+      if (league.creatorId && !memberIds.includes(league.creatorId)) {
+        memberIds.push(league.creatorId);
+      }
+      
+      return {
+        ...league,
+        memberIds
+      };
+    });
+    
+    // Save the fixed data
+    await saveJsonFile(LEAGUE_FILE, fixedLeagueData);
+    console.log('DEBUG: League data fixed and saved');
+  } catch (error) {
+    console.error('DEBUG: Error fixing league data:', error);
+  }
 }
 
 // API ENDPOINTS
@@ -650,13 +722,16 @@ app.get('/api/leagues/:id', (req, res) => {
 });
 
 // Create a new league
-app.post('/api/leagues', auth, (req, res) => {
+app.post('/api/leagues', auth, async (req, res) => {
+  console.log('DEBUG: /api/leagues POST received', req.body);
   const { name, maxTeams, description, isPublic, regions } = req.body;
   
   if (!name) {
+    console.log('DEBUG: League name is required but was missing');
     return res.status(400).json({ message: 'League name is required' });
   }
   
+  console.log(`DEBUG: Creating league "${name}" with maxTeams=${maxTeams}, regions=[${regions}]`);
   // Use auth user as creator
   const league = leagueService.createLeague(name, maxTeams || 12, {
     creatorId: req.user.id,
@@ -665,16 +740,39 @@ app.post('/api/leagues', auth, (req, res) => {
     regions: regions || ['LCS', 'LEC'] // Default to North America and Europe if not specified
   });
   
-  // Add creator as first member
-  leagueService.addMemberToLeague(league.id, req.user.id);
+  console.log(`DEBUG: League created with ID ${league.id}`);
+  // Add creator as first member - make sure we're passing the actual user ID
+  if (req.user && req.user.id) {
+    const added = leagueService.addMemberToLeague(league.id, req.user.id);
+    console.log(`DEBUG: Added creator ${req.user.id} as first member: ${added}`);
+    console.log(`DEBUG: League memberIds after adding creator: [${league.memberIds}]`);
+  } else {
+    console.log(`DEBUG: Warning - Unable to add creator as member, user ID is undefined`);
+  }
   
   // Update user's leagues
   userService.updateUserLeagues(req.user.id, league.id, 'add');
+  console.log(`DEBUG: Updated user leagues for ${req.user.id}`);
   
   // Save league data
-  saveLeagueData();
-  
-  res.status(201).json(league);
+  try {
+    await saveLeagueData();
+    console.log(`DEBUG: Successfully saved league data`);
+    console.log(`DEBUG: Final league state before sending response: 
+      id: ${league.id}
+      memberIds: [${league.memberIds}]
+      creatorId: ${league.creatorId}
+    `);
+    
+    // Prompt for team creation by returning a flag in the response
+    res.status(201).json({ 
+      ...league, 
+      promptCreateTeam: true 
+    });
+  } catch (error) {
+    console.error('DEBUG: Error saving league data:', error);
+    res.status(500).json({ message: 'Failed to save league data' });
+  }
 });
 
 // Join a league
@@ -706,6 +804,7 @@ app.post('/api/leagues/:id/join', auth, (req, res) => {
 // Create a new team (requires league membership)
 app.post('/api/teams', auth, (req, res) => {
     const { name, leagueId } = req.body;
+    console.log(`DEBUG: Creating team "${name}" in league ${leagueId} for user ${req.user.id}`);
     
     if (!name) {
       return res.status(400).json({ message: 'Team name is required' });
@@ -717,7 +816,26 @@ app.post('/api/teams', auth, (req, res) => {
     
     // Check if user is a member of the league
     const league = leagueService.getLeagueById(leagueId);
-    if (!league || !league.memberIds.includes(req.user.id)) {
+    if (!league) {
+      console.log(`DEBUG: League ${leagueId} not found`);
+      return res.status(404).json({ message: 'League not found' });
+    }
+    
+    console.log(`DEBUG: League ${leagueId} found. League.memberIds: [${league.memberIds}], user.id: ${req.user.id}`);
+    
+    // Filter out null values in memberIds
+    const validMemberIds = league.memberIds.filter(id => id !== null && id !== undefined);
+    
+    // If the user created this league, automatically make them a member if they aren't already
+    if (league.creatorId === req.user.id && !validMemberIds.includes(req.user.id)) {
+      console.log(`DEBUG: User ${req.user.id} is the creator but not a member. Adding them as a member.`);
+      leagueService.addMemberToLeague(leagueId, req.user.id);
+      console.log(`DEBUG: After adding creator, league.memberIds: [${league.memberIds}]`);
+    }
+    
+    // Check membership again after potential auto-adding
+    if (!validMemberIds.includes(req.user.id)) {
+      console.log(`DEBUG: User ${req.user.id} is not a member of league ${leagueId}`);
       return res.status(403).json({ message: 'You must join this league before creating a team' });
     }
     
@@ -920,4 +1038,7 @@ app.listen(PORT, async () => {
   } catch (error) {
     console.error('DEBUG: Error during initialization:', error);
   }
+  
+  // Fix existing league data
+  await fixLeagueData();
 });

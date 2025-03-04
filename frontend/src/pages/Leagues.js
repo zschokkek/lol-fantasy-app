@@ -186,6 +186,7 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
     
     try {
       setIsSubmitting(true);
+      console.log('Creating league with data:', { name, description, maxTeams, isPublic, regions: selectedRegions });
       const newLeague = await createLeague({ 
         name, 
         description, 
@@ -194,6 +195,7 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
         regions: selectedRegions
       });
       
+      console.log('League created successfully:', newLeague);
       toast({
         title: 'League Created',
         description: `${name} has been created successfully`,
@@ -360,132 +362,103 @@ const EmptyState = ({ title, description, buttonText, buttonIcon, onClick }) => 
 
 const Leagues = () => {
   const [leagues, setLeagues] = useState([]);
-  const [filteredLeagues, setFilteredLeagues] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [userLeagues, setUserLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [joining, setJoining] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const navigate = useNavigate();
-  const toast = useToast();
-  
+  const { getLeagues, getUserLeagues } = useApi();
   const { user } = useAuth();
-  const { getLeagues, getUserLeagues, joinLeague } = useApi();
-  const { selectLeague, selectedLeague, userLeagues, loading: leagueContextLoading } = useLeague();
-  
-  // Load leagues
+  const [showCreateTeamModal, setShowCreateTeamModal] = useState(false);
+  const [newLeagueId, setNewLeagueId] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   useEffect(() => {
-    const loadLeagues = async () => {
-      try {
-        setLoading(true);
-        const allLeagues = await getLeagues();
-        setLeagues(allLeagues);
-        
-        if (searchTerm) {
-          filterLeagues(allLeagues, searchTerm);
-        } else {
-          setFilteredLeagues(allLeagues);
-        }
-        
-        setLoading(false);
-      } catch (error) {
-        console.error('Failed to load leagues:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load leagues',
-          status: 'error',
-          duration: 3000,
-          position: 'top'
-        });
-        setLoading(false);
+    fetchLeagues();
+  }, [refreshTrigger]);
+
+  const fetchLeagues = async () => {
+    try {
+      console.log('Fetching leagues...');
+      setLoading(true);
+      const allLeagues = await getLeagues();
+      console.log('All leagues:', allLeagues);
+      setLeagues(allLeagues);
+      
+      if (user && user.id) {
+        const myLeagues = await getUserLeagues();
+        console.log('User leagues:', myLeagues);
+        setUserLeagues(myLeagues);
       }
-    };
-    
-    loadLeagues();
-  }, [getLeagues, toast, searchTerm]);
-  
-  // Filter leagues when search term changes
-  const filterLeagues = (leagueList, term) => {
-    if (!term) {
-      setFilteredLeagues(leagueList);
-      return;
+    } catch (error) {
+      console.error('Error fetching leagues:', error);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  // Handle league creation completion
+  const handleLeagueCreated = (newLeague) => {
+    console.log('League created:', newLeague);
+    // Refresh the leagues list
+    setRefreshTrigger(prev => prev + 1);
     
-    const filtered = leagueList.filter(league => 
+    // If the backend suggested we prompt for team creation
+    if (newLeague.promptCreateTeam) {
+      setNewLeagueId(newLeague.id);
+      setShowCreateTeamModal(true);
+    }
+  };
+  
+  // Handle team creation completion
+  const handleTeamCreated = () => {
+    console.log('Team created in league:', newLeagueId);
+    setShowCreateTeamModal(false);
+    setNewLeagueId(null);
+    // Refresh the leagues list again to show new team
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleSearch = (e) => {
+    const term = e.target.value;
+    const filtered = leagues.filter(league => 
       league.name.toLowerCase().includes(term.toLowerCase()) || 
       (league.description && league.description.toLowerCase().includes(term.toLowerCase()))
     );
     
-    setFilteredLeagues(filtered);
+    setLeagues(filtered);
   };
-  
-  const handleSearch = (e) => {
-    const term = e.target.value;
-    setSearchTerm(term);
-    filterLeagues(leagues, term);
-  };
-  
+
   const handleJoinLeague = async (leagueId) => {
     try {
-      setJoining(true);
-      await joinLeague(leagueId);
-      
-      // Reload leagues after joining
       const updatedUserLeagues = await getUserLeagues();
       
-      toast({
-        title: 'Success',
-        description: 'You have joined the league',
-        status: 'success',
-        duration: 3000,
-        position: 'top'
-      });
+      console.log('User leagues:', updatedUserLeagues);
       
-      // Reload all leagues to update UI
-      const allLeagues = await getLeagues();
-      setLeagues(allLeagues);
-      filterLeagues(allLeagues, searchTerm);
-      
-      setJoining(false);
+      setUserLeagues(updatedUserLeagues);
     } catch (error) {
       console.error('Failed to join league:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to join league',
-        status: 'error',
-        duration: 3000,
-        position: 'top'
-      });
-      setJoining(false);
     }
   };
-  
-  const handleLeagueCreated = (newLeague) => {
-    setLeagues(prevLeagues => [...prevLeagues, newLeague]);
-    setFilteredLeagues(prevLeagues => [...prevLeagues, newLeague]);
-  };
-  
-  const handleSelectLeague = (league) => {
-    selectLeague(league);
-    toast({
-      title: 'League Selected',
-      description: `${league.name} is now your active league`,
-      status: 'success',
-      duration: 2000,
-      position: 'top-right'
-    });
-  };
-  
+
   // Separate leagues into user's leagues and public leagues
-  const userMemberLeagues = filteredLeagues.filter(league => 
-    league.memberIds && league.memberIds.includes(user?.id)
-  );
+  const userMemberLeagues = leagues.filter(league => {
+    // Filter out leagues where user is a member (and handle null values)
+    if (!league.memberIds) return false;
+    return league.memberIds.some(id => id === user?.id);
+  });
   
-  const publicLeagues = filteredLeagues.filter(league => 
-    league.isPublic && (!league.memberIds || !league.memberIds.includes(user?.id))
-  );
-  
+  const publicLeagues = leagues.filter(league => {
+    // Include only public leagues where the user is not a member
+    if (!league.isPublic) return false;
+    
+    // If memberIds is missing, consider it not a member
+    if (!league.memberIds) return true;
+    
+    // Filter out null values and check if user is not in the memberIds list
+    return !league.memberIds.some(id => id === user?.id);
+  });
+
   // Loading state
-  if (loading || leagueContextLoading) {
+  if (loading) {
     return (
       <Flex justify="center" align="center" h="50vh" direction="column">
         <Spinner size="xl" color="teal.400" thickness="4px" mb={4} />
@@ -503,7 +476,6 @@ const Leagues = () => {
         <Flex gap={4}>
           <Input
             placeholder="Search leagues..."
-            value={searchTerm}
             onChange={handleSearch}
             bg="gray.700"
             border="none"
@@ -541,8 +513,8 @@ const Leagues = () => {
                 league={league}
                 onJoin={handleJoinLeague}
                 userIsMember={league.memberIds && league.memberIds.includes(user?.id)}
-                onSelect={handleSelectLeague}
-                isSelected={selectedLeague && selectedLeague.id === league.id}
+                onSelect={() => {}}
+                isSelected={false}
               />
             ))}
           </SimpleGrid>
@@ -572,7 +544,7 @@ const Leagues = () => {
                 league={league}
                 onJoin={handleJoinLeague}
                 userIsMember={false}
-                onSelect={handleSelectLeague}
+                onSelect={() => {}}
                 isSelected={false}
               />
             ))}
@@ -586,7 +558,127 @@ const Leagues = () => {
         onClose={onClose} 
         onCreate={handleLeagueCreated} 
       />
+      
+      {/* Create Team Modal for new league */}
+      {showCreateTeamModal && newLeagueId && (
+        <CreateTeamForLeagueModal
+          isOpen={showCreateTeamModal}
+          onClose={() => setShowCreateTeamModal(false)}
+          leagueId={newLeagueId}
+          onTeamCreated={handleTeamCreated}
+        />
+      )}
     </Box>
+  );
+};
+
+// Modal to create a team for a new league
+const CreateTeamForLeagueModal = ({ isOpen, onClose, leagueId, onTeamCreated }) => {
+  const [teamName, setTeamName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createTeam } = useApi();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const toast = useToast();
+  
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!teamName) {
+      toast({
+        title: 'Missing Field',
+        description: 'Please enter a team name',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      console.log('Creating team in league:', leagueId);
+      
+      const newTeam = await createTeam({ 
+        name: teamName, 
+        owner: user.username,
+        leagueId: leagueId
+      });
+      
+      console.log('Team created successfully:', newTeam);
+      
+      toast({
+        title: 'Team Created',
+        description: `${teamName} has been created successfully`,
+        status: 'success',
+        duration: 3000,
+        position: 'top'
+      });
+      
+      setTeamName('');
+      onClose();
+      
+      if (onTeamCreated) {
+        onTeamCreated(newTeam);
+      }
+      
+      // Navigate to the league detail page
+      navigate(`/leagues/${leagueId}`);
+    } catch (error) {
+      console.error('Error creating team:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create team',
+        status: 'error',
+        duration: 3000,
+        position: 'top'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="md">
+      <ModalOverlay backdropFilter="blur(10px)" />
+      <ModalContent bg="gray.800" color="white" borderRadius="lg">
+        <ModalHeader borderBottomWidth="1px" borderColor="gray.700">Create Your Team</ModalHeader>
+        <ModalCloseButton />
+        <form onSubmit={handleSubmit}>
+          <ModalBody py={6}>
+            <Text mb={4} color="gray.400">
+              Your league has been created! Now, let's create your team in this league.
+            </Text>
+            
+            <FormControl mb={4} isRequired>
+              <FormLabel fontWeight="bold">Team Name</FormLabel>
+              <Input 
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Enter a cool team name"
+                bg="gray.700"
+                borderColor="gray.600"
+                _hover={{ borderColor: "teal.300" }}
+                _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+              />
+            </FormControl>
+          </ModalBody>
+          
+          <ModalFooter borderTopWidth="1px" borderColor="gray.700">
+            <Button variant="ghost" mr={3} onClick={onClose} _hover={{ bg: "whiteAlpha.100" }}>
+              Skip
+            </Button>
+            <Button 
+              type="submit" 
+              colorScheme="teal" 
+              isLoading={isSubmitting}
+              leftIcon={<AddIcon />}
+            >
+              Create Team
+            </Button>
+          </ModalFooter>
+        </form>
+      </ModalContent>
+    </Modal>
   );
 };
 

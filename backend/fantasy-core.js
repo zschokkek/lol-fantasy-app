@@ -201,6 +201,11 @@ class Player {
       this.description = options.description || '';
       this.isPublic = options.isPublic !== undefined ? options.isPublic : true;
       this.regions = options.regions || ['LCS', 'LEC']; // Default regions
+      
+      // Add creator as a member if provided
+      if (options.creatorId) {
+        this.addMember(options.creatorId);
+      }
     }
   
     /**
@@ -368,7 +373,8 @@ class Player {
      * @param {String} userId - User ID to add as member
      */
     addMember(userId) {
-      if (!this.memberIds.includes(userId)) {
+      // Don't add null or undefined memberIds
+      if (userId !== null && userId !== undefined && !this.memberIds.includes(userId)) {
         this.memberIds.push(userId);
         return true;
       }
@@ -1040,8 +1046,18 @@ class Player {
      * @param {Object} options - Additional options for the league
      */
     createLeague(name, maxTeams = 10, options = {}) {
+      console.log(`DEBUG: LeagueService.createLeague - Creating league "${name}" with options:`, options);
       const league = new League(name, maxTeams, options);
+      
+      // Ensure creator is added as member if creatorId is provided
+      if (options.creatorId) {
+        console.log(`DEBUG: LeagueService.createLeague - Adding creator ${options.creatorId} as member`);
+        league.addMember(options.creatorId);
+        console.log(`DEBUG: LeagueService.createLeague - After adding creator, memberIds: [${league.memberIds}]`);
+      }
+      
       this.leagues.push(league);
+      console.log(`DEBUG: LeagueService.createLeague - League created with ID ${league.id}, memberIds: [${league.memberIds}]`);
       return league;
     }
     
@@ -1094,7 +1110,10 @@ class Player {
       // Add members to league
       if (leagueData.memberIds) {
         for (const memberId of leagueData.memberIds) {
-          league.addMember(memberId);
+          // Skip null memberIds
+          if (memberId !== null) {
+            league.addMember(memberId);
+          }
         }
       }
       
@@ -1162,20 +1181,50 @@ class Player {
      * @param {String} userId - User ID
      */
     getLeaguesByUserId(userId) {
-      return this.leagues.filter(league => league.memberIds.includes(userId));
+      console.log(`DEBUG: LeagueService.getLeaguesByUserId - Finding leagues for user ${userId}`);
+      
+      if (!userId) {
+        console.log(`DEBUG: LeagueService.getLeaguesByUserId - User ID is null or undefined`);
+        return [];
+      }
+      
+      const userLeagues = this.leagues.filter(league => {
+        if (!league.memberIds) {
+          return false;
+        }
+        
+        // Filter out any null values in memberIds
+        const validMemberIds = league.memberIds.filter(id => id !== null && id !== undefined);
+        return validMemberIds.includes(userId);
+      });
+      
+      console.log(`DEBUG: LeagueService.getLeaguesByUserId - Found ${userLeagues.length} leagues for user ${userId}`);
+      return userLeagues;
     }
     
     /**
      * Add a member to a league
-     * @param {String} leagueId - League ID
-     * @param {String} userId - User ID to add
+     * @param {String} leagueId - ID of the league to add member to
+     * @param {String} userId - User ID to add as member
      */
     addMemberToLeague(leagueId, userId) {
+      console.log(`DEBUG: LeagueService.addMemberToLeague - Adding user ${userId} to league ${leagueId}`);
       const league = this.getLeagueById(leagueId);
-      if (league) {
-        return league.addMember(userId);
+      
+      if (!league) {
+        console.log(`DEBUG: LeagueService.addMemberToLeague - League ${leagueId} not found`);
+        return false;
       }
-      return false;
+      
+      if (!userId) {
+        console.log(`DEBUG: LeagueService.addMemberToLeague - User ID is null or undefined`);
+        return false;
+      }
+      
+      // Add the member to the league
+      const result = league.addMember(userId);
+      console.log(`DEBUG: LeagueService.addMemberToLeague - Result: ${result}, memberIds: [${league.memberIds}]`);
+      return result;
     }
     
     /**
