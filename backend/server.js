@@ -41,7 +41,7 @@ app.use(bodyParser.text());
 
 // Update your CORS settings in server.js
 app.use(cors({
-    origin: 'http://localhost:3000', // Replace with your frontend URL
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000', // Replace with your frontend URL
     credentials: true
   }));
   
@@ -1038,7 +1038,22 @@ app.listen(PORT, async () => {
   } catch (error) {
     console.error('DEBUG: Error during initialization:', error);
   }
+});
+
+// Add an admin endpoint to fix league data when needed
+app.post('/api/admin/fix-league-data', auth, async (req, res) => {
+  // Only allow admins or specific users to run this
+  if (!req.user || !req.user.id) {
+    return res.status(403).json({ message: 'Unauthorized' });
+  }
   
-  // Fix existing league data
-  await fixLeagueData();
+  console.log(`DEBUG: User ${req.user.id} requested to fix league data`);
+  
+  try {
+    await fixLeagueData();
+    res.json({ message: 'League data fixed successfully' });
+  } catch (error) {
+    console.error('Error fixing league data:', error);
+    res.status(500).json({ message: 'Failed to fix league data' });
+  }
 });
