@@ -16,17 +16,13 @@ import { useLeague } from '../context/LeagueContext';
 const LeagueCard = ({ league, onJoin, userIsMember, onSelect, isSelected }) => {
   const cardBg = "gray.800";
   const cardHoverBg = "gray.700";
-  const accentColor = isSelected ? "purple.400" : (userIsMember ? "teal.400" : "blue.400");
+  const accentColor = isSelected ? "purple.400" : (userIsMember ? "yellow.400" : "blue.400");
   const navigate = useNavigate();
   
   const handleClick = (e) => {
     e.preventDefault();
-    if (userIsMember) {
-      onSelect(league);
-      navigate(`/leagues/${league.id}`);
-    } else {
-      onJoin(league.id);
-    }
+    onSelect(league);
+    navigate(`/leagues/${league.id}`);
   };
   
   return (
@@ -91,34 +87,19 @@ const LeagueCard = ({ league, onJoin, userIsMember, onSelect, isSelected }) => {
       </Grid>
       
       {/* Action buttons */}
-      <Flex justify="center" mt={5} gap={2}>
-        {userIsMember ? (
-          <Button 
-            as={RouterLink}
-            to={`/leagues/${league.id}`}
-            size="sm" 
-            width="full"
-            colorScheme="teal" 
-            variant="outline"
-            leftIcon={<ViewIcon />}
-          >
-            View Details
-          </Button>
-        ) : (
-          <Button 
-            size="sm" 
-            width="full"
-            colorScheme="blue" 
-            onClick={(e) => {
-              e.stopPropagation();
-              onJoin(league.id);
-            }}
-            leftIcon={<StarIcon />}
-          >
-            Join League
-          </Button>
-        )}
-      </Flex>
+      {/* <Flex justify="center" mt={5} gap={2}>
+        <Button 
+          as={RouterLink}
+          to={`/leagues/${league.id}`}
+          size="sm" 
+          width="full"
+          colorScheme={userIsMember ? "teal" : "blue"} 
+          variant="outline"
+          leftIcon={<ViewIcon />}
+        >
+          View Details
+        </Button>
+      </Flex> */}
       
       {isSelected && (
         <Box 
@@ -244,8 +225,8 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
                 placeholder="Enter league name"
                 bg="gray.700"
                 borderColor="gray.600"
-                _hover={{ borderColor: "teal.300" }}
-                _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+                _hover={{ borderColor: "yellow.300" }}
+                _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
               />
             </FormControl>
             
@@ -257,8 +238,8 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
                 placeholder="Describe your league"
                 bg="gray.700"
                 borderColor="gray.600"
-                _hover={{ borderColor: "teal.300" }}
-                _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+                _hover={{ borderColor: "yellow.300" }}
+                _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
               />
             </FormControl>
             
@@ -272,8 +253,8 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
                 max={20}
                 bg="gray.700"
                 borderColor="gray.600"
-                _hover={{ borderColor: "teal.300" }}
-                _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+                _hover={{ borderColor: "yellow.300" }}
+                _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
               />
             </FormControl>
             
@@ -283,7 +264,7 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
                 <Switch 
                   isChecked={isPublic} 
                   onChange={(e) => setIsPublic(e.target.checked)}
-                  colorScheme="teal"
+                  colorScheme="yellow"
                   size="lg"
                   mr={3}
                 />
@@ -300,7 +281,7 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
                 Select the regions whose players will be available in your league
               </FormHelperText>
               <CheckboxGroup 
-                colorScheme="teal" 
+                colorScheme="yellow" 
                 value={selectedRegions} 
                 onChange={handleRegionChange}
               >
@@ -321,7 +302,7 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
             </Button>
             <Button 
               type="submit" 
-              colorScheme="teal" 
+              colorScheme="yellow" 
               isLoading={isSubmitting}
               leftIcon={<AddIcon />}
             >
@@ -349,7 +330,7 @@ const EmptyState = ({ title, description, buttonText, buttonIcon, onClick }) => 
       <Heading size="md" mb={2} fontWeight="bold" color="white">{title}</Heading>
       <Text color="gray.300" mb={6}>{description}</Text>
       <Button 
-        colorScheme="teal" 
+        colorScheme="yellow" 
         onClick={onClick}
         size="lg"
         leftIcon={<AddIcon />}
@@ -461,7 +442,7 @@ const Leagues = () => {
   if (loading) {
     return (
       <Flex justify="center" align="center" h="50vh" direction="column">
-        <Spinner size="xl" color="teal.400" thickness="4px" mb={4} />
+        <Spinner size="xl" color="yellow.400" thickness="4px" mb={4} />
         <Text color="gray.400">Loading leagues...</Text>
       </Flex>
     );
@@ -483,7 +464,7 @@ const Leagues = () => {
           />
           <Button
             leftIcon={<AddIcon />}
-            colorScheme="teal"
+            colorScheme="yellow"
             onClick={onOpen}
           >
             Create League
@@ -493,7 +474,7 @@ const Leagues = () => {
 
       {/* User's Member Leagues Section */}
       <Box mb={10}>
-        <Heading size="md" mb={4} color="teal.400">
+        <Heading size="md" mb={4} color="yellow.400">
           My Leagues
         </Heading>
         
@@ -657,8 +638,8 @@ const CreateTeamForLeagueModal = ({ isOpen, onClose, leagueId, onTeamCreated }) 
                 placeholder="Enter a cool team name"
                 bg="gray.700"
                 borderColor="gray.600"
-                _hover={{ borderColor: "teal.300" }}
-                _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+                _hover={{ borderColor: "yellow.300" }}
+                _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
               />
             </FormControl>
           </ModalBody>
@@ -669,7 +650,7 @@ const CreateTeamForLeagueModal = ({ isOpen, onClose, leagueId, onTeamCreated }) 
             </Button>
             <Button 
               type="submit" 
-              colorScheme="teal" 
+              colorScheme="yellow" 
               isLoading={isSubmitting}
               leftIcon={<AddIcon />}
             >

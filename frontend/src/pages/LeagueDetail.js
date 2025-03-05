@@ -27,20 +27,20 @@ const TeamCard = ({ team }) => {
       borderWidth={1}
       borderColor="gray.700"
       transition="all 0.2s"
-      _hover={{ shadow: 'xl', transform: 'translateY(-2px)', borderColor: 'teal.500' }}
+      _hover={{ shadow: 'xl', transform: 'translateY(-2px)', borderColor: 'yellow.500' }}
       position="relative"
       overflow="hidden"
     >
       {/* Top accent line */}
-      <Box position="absolute" top={0} left={0} right={0} height="3px" bg="teal.500" />
+      <Box position="absolute" top={0} left={0} right={0} height="3px" bg="yellow.500" />
       
       <Flex justify="space-between" align="flex-start">
         <Heading size="md" mb={2} fontWeight="bold">
-          <Link as={RouterLink} to={`/teams/${team.id}`} color="white" _hover={{ color: 'teal.300' }}>
+          <Link as={RouterLink} to={`/teams/${team.id}`} color="white" _hover={{ color: 'yellow.300' }}>
             {team.name}
           </Link>
         </Heading>
-        <Badge colorScheme="teal" fontSize="xs" px={2} py={1} rounded="full">
+        <Badge colorScheme="yellow" fontSize="xs" px={2} py={1} rounded="full">
           {team.players ? Object.values(team.players).filter(p => p !== null && !Array.isArray(p)).length : 0} Players
         </Badge>
       </Flex>
@@ -53,7 +53,7 @@ const TeamCard = ({ team }) => {
       
       <Flex justify="space-between" align="center">
         <Text fontSize="sm" color="gray.500">Fantasy Points</Text>
-        <Text fontWeight="bold" fontSize="xl" color="teal.300">
+        <Text fontWeight="bold" fontSize="xl" color="yellow.300">
           {team.totalPoints?.toFixed(1) || 0}
         </Text>
       </Flex>
@@ -69,7 +69,7 @@ const MemberList = ({ members }) => {
         {members.map((member, index) => (
           <Flex key={index} justify="space-between" align="center">
             <Flex align="center">
-              <Avatar size="sm" name={member.username} mr={3} bg="teal.500" />
+              <Avatar size="sm" name={member.username} mr={3} bg="yellow.500" />
               <Text fontWeight="medium">{member.username}</Text>
             </Flex>
             <Badge colorScheme={index === 0 ? "purple" : "gray"}>
@@ -152,8 +152,8 @@ const CreateTeamModal = ({ isOpen, onClose, onCreate, leagueId }) => {
                 placeholder="Enter a cool team name"
                 bg="gray.700"
                 borderColor="gray.600"
-                _hover={{ borderColor: "teal.300" }}
-                _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+                _hover={{ borderColor: "yellow.300" }}
+                _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
               />
             </FormControl>
           </ModalBody>
@@ -164,7 +164,7 @@ const CreateTeamModal = ({ isOpen, onClose, onCreate, leagueId }) => {
             </Button>
             <Button 
               type="submit" 
-              colorScheme="teal" 
+              colorScheme="yellow" 
               isLoading={loading}
               leftIcon={<AddIcon />}
             >
@@ -278,7 +278,7 @@ const LeagueDetail = () => {
           thickness="4px"
           speed="0.65s"
           emptyColor="gray.700"
-          color="teal.500"
+          color="yellow.500"
           size="xl"
         />
       </Flex>
@@ -334,7 +334,7 @@ const LeagueDetail = () => {
                 <Text fontWeight="semibold" mb={1}>Regions:</Text>
                 <HStack spacing={2}>
                   {league.regions.map((region, idx) => (
-                    <Badge key={idx} colorScheme="teal" fontSize="sm" px={2} py={1} borderRadius="full">
+                    <Badge key={idx} colorScheme="yellow" fontSize="sm" px={2} py={1} borderRadius="full">
                       {region}
                     </Badge>
                   ))}
@@ -342,33 +342,7 @@ const LeagueDetail = () => {
               </Box>
             )}
           </Box>
-          
-          {!isUserMember ? (
-            <Button 
-              colorScheme="teal" 
-              onClick={handleJoinLeague}
-              leftIcon={<StarIcon />}
-              size="lg"
-            >
-              Join League
-            </Button>
-          ) : !userHasTeam ? (
-            <Button 
-              colorScheme="teal" 
-              onClick={onOpen}
-              leftIcon={<AddIcon />}
-              size="lg"
-            >
-              Create Team
-            </Button>
-          ) : (
-            <Badge colorScheme="green" p={2} fontSize="md" rounded="md">
-              <Flex align="center">
-                <CheckIcon mr={2} />
-                Member
-              </Flex>
-            </Badge>
-          )}
+
         </Flex>
         
         <Grid templateColumns={{ base: "repeat(2, 1fr)", md: "repeat(4, 1fr)" }} gap={4} mt={6}>
@@ -420,12 +394,12 @@ const LeagueDetail = () => {
       {/* League Content */}
       <Grid templateColumns={{ base: "1fr", lg: "3fr 1fr" }} gap={8}>
         <GridItem>
-          <Tabs variant="soft-rounded" colorScheme="teal" isLazy>
+          <Tabs variant="soft-rounded" colorScheme="yellow" isLazy>
             <TabList mb={8}>
-              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Teams</Tab>
-              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Standings</Tab>
-              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Matchups</Tab>
-              <Tab _selected={{ color: 'white', bg: 'teal.500' }} color="gray.300">Draft</Tab>
+              <Tab _selected={{ color: 'white', bg: 'yellow.500' }} color="gray.300">Teams</Tab>
+              <Tab _selected={{ color: 'white', bg: 'yellow.500' }} color="gray.300">Standings</Tab>
+              <Tab _selected={{ color: 'white', bg: 'yellow.500' }} color="gray.300">Matchups</Tab>
+              <Tab _selected={{ color: 'white', bg: 'yellow.500' }} color="gray.300">Draft</Tab>
             </TabList>
             
             <TabPanels>
@@ -451,7 +425,7 @@ const LeagueDetail = () => {
                     <Text color="gray.300" mb={6}>Be the first to create a team in this league</Text>
                     {isUserMember && !userHasTeam && (
                       <Button 
-                        colorScheme="teal" 
+                        colorScheme="yellow" 
                         onClick={onOpen}
                         size="lg"
                         leftIcon={<AddIcon />}
@@ -479,11 +453,11 @@ const LeagueDetail = () => {
                       {standings.length > 0 ? (
                         standings.map((standing, index) => (
                           <Tr key={index} _hover={{ bg: "gray.700" }}>
-                            <Td fontWeight="bold" color={index < 3 ? "teal.300" : "white"}>
+                            <Td fontWeight="bold" color={index < 3 ? "yellow.300" : "white"}>
                               {index + 1}
                             </Td>
                             <Td>
-                              <Link as={RouterLink} to={`/teams/${standing.team.id}`} color="white" _hover={{ color: 'teal.300' }}>
+                              <Link as={RouterLink} to={`/teams/${standing.team.id}`} color="white" _hover={{ color: 'yellow.300' }}>
                                 {standing.team.name}
                               </Link>
                             </Td>
@@ -545,7 +519,7 @@ const LeagueDetail = () => {
                           borderWidth="1px"
                           borderColor="gray.600"
                           shadow="md"
-                          _hover={{ borderColor: 'teal.300', transform: 'translateY(-2px)' }}
+                          _hover={{ borderColor: 'yellow.300', transform: 'translateY(-2px)' }}
                           transition="all 0.2s"
                         >
                           <Grid templateColumns="1fr auto 1fr" gap={4} alignItems="center">
@@ -599,7 +573,7 @@ const LeagueDetail = () => {
                       The draft for this league has not been scheduled yet. Once scheduled, you'll be able to participate here.
                     </Text>
                     {league.memberIds?.includes(user.id) && (
-                      <Button colorScheme="teal" size="lg" as={RouterLink} to={`/draft?leagueId=${league.id}`}>
+                      <Button colorScheme="yellow" size="lg" as={RouterLink} to={`/draft?leagueId=${league.id}`}>
                         View Draft Details
                       </Button>
                     )}
@@ -618,7 +592,7 @@ const LeagueDetail = () => {
               {members.map((member, index) => (
                 <Flex key={index} justify="space-between" align="center">
                   <Flex align="center">
-                    <Avatar size="sm" name={member.username} mr={3} bg="teal.500" />
+                    <Avatar size="sm" name={member.username} mr={3} bg="yellow.500" />
                     <Text fontWeight="medium" color="white">{member.username}</Text>
                   </Flex>
                   <Badge colorScheme={index === 0 ? "purple" : "gray"}>

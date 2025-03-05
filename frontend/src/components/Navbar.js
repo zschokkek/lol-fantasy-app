@@ -24,7 +24,7 @@ const NavLink = ({ to, children, isMobile = false }) => {
       py={isMobile ? 3 : 1}
       rounded="md"
       fontWeight="medium"
-      color={isActive ? "teal.200" : "whiteAlpha.900"}
+      color={isActive ? "yellow.200" : "whiteAlpha.900"}
       _hover={{
         textDecoration: 'none',
         bg: "whiteAlpha.100",
@@ -39,7 +39,7 @@ const NavLink = ({ to, children, isMobile = false }) => {
         left: '0',
         right: '0',
         height: '2px',
-        bg: 'teal.200',
+        bg: 'yellow.200',
         borderRadius: '2px 2px 0 0'
       } : {}}
       display={isMobile ? "block" : "inline-block"}
@@ -79,14 +79,14 @@ const Navbar = () => {
   };
   
   const navItems = isAuthenticated ? [
-    { label: 'Players', path: '/players', alwaysShow: true },
+    { label: 'Players', path: '/players', requiresLeague: true },
     { label: 'My Leagues', path: '/leagues', alwaysShow: true },
     { label: 'My Teams', path: '/teams', alwaysShow: true },
     { label: 'Matchups', path: '/matchups', requiresLeague: true },
     { label: 'Standings', path: '/standings', requiresLeague: true },
     { label: 'Draft', path: '/draft', requiresLeague: true },
   ] : [
-    { label: 'Players', path: '/players', alwaysShow: true }
+    { label: 'Players', path: '/players', requiresLeague: true }
   ];
   
   // Filter nav items based on whether a league is selected
@@ -113,7 +113,7 @@ const Navbar = () => {
       >
         <Flex alignItems="center">
           <Heading size="md" as={RouterLink} to="/" color="white">
-            <Box as="span" color="teal.300">Fantasy</Box> LoL
+            <Box as="span" color="yellow.300">Fantasy</Box> LoL
           </Heading>
           
           {selectedLeague && (
@@ -125,7 +125,7 @@ const Navbar = () => {
               borderColor="gray.600"
             >
               <Text 
-                color="purple.300" 
+                color="yellow.300" 
                 fontWeight="medium" 
                 fontSize="md"
                 display={{ base: 'none', sm: 'block' }}
@@ -162,7 +162,7 @@ const Navbar = () => {
                 color="white"
                 rightIcon={<ChevronDownIcon />}
               >
-                <Avatar size="sm" name={user.username} bg="teal.400" src={user.avatar} />
+                <Avatar size="sm" name={user.username} bg="yellow.400" src={user.avatar} />
               </MenuButton>
               <MenuList bg="gray.700" borderColor="gray.600">
                 <Box px={3} py={2} borderBottomWidth="1px" borderColor="gray.600">
@@ -172,7 +172,7 @@ const Navbar = () => {
                 {selectedLeague && (
                   <Box px={3} py={2} borderBottomWidth="1px" borderColor="gray.600">
                     <Text color="white" fontSize="sm" fontWeight="medium">Active League:</Text>
-                    <Text color="teal.300" fontSize="sm">{selectedLeague.name}</Text>
+                    <Text color="yellow.300" fontSize="sm">{selectedLeague.name}</Text>
                   </Box>
                 )}
                 <MenuItem 
@@ -198,7 +198,7 @@ const Navbar = () => {
                 as={RouterLink} 
                 to="/login" 
                 variant="ghost" 
-                colorScheme="teal"
+                colorScheme="yellow"
                 _hover={{ bg: 'whiteAlpha.200' }}
                 color="white"
                 size="sm"
@@ -208,7 +208,7 @@ const Navbar = () => {
               <Button 
                 as={RouterLink} 
                 to="/register" 
-                colorScheme="teal" 
+                colorScheme="yellow" 
                 size="sm"
               >
                 Register
@@ -261,7 +261,7 @@ const Navbar = () => {
                   {selectedLeague && (
                     <Box px={4} py={2} borderBottomWidth="1px" borderColor="gray.700">
                       <Text color="white" fontSize="sm" fontWeight="medium">Active League:</Text>
-                      <Text color="teal.300" fontSize="sm">{selectedLeague.name}</Text>
+                      <Text color="yellow.300" fontSize="sm">{selectedLeague.name}</Text>
                     </Box>
                   )}
                   <Link
@@ -298,7 +298,7 @@ const Navbar = () => {
                       to="/login" 
                       width="full"
                       variant="outline" 
-                      colorScheme="teal"
+                      colorScheme="yellow"
                       onClick={onClose}
                     >
                       Log In
@@ -307,7 +307,7 @@ const Navbar = () => {
                       as={RouterLink} 
                       to="/register" 
                       width="full"
-                      colorScheme="teal"
+                      colorScheme="yellow"
                       onClick={onClose}
                     >
                       Register

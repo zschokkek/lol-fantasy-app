@@ -64,8 +64,8 @@ const Login = () => {
               bg="gray.700"
               borderColor="gray.600"
               color="white"
-              _hover={{ borderColor: "teal.300" }}
-              _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+              _hover={{ borderColor: "yellow.300" }}
+              _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
             />
           </FormControl>
           
@@ -79,14 +79,14 @@ const Login = () => {
               bg="gray.700"
               borderColor="gray.600"
               color="white"
-              _hover={{ borderColor: "teal.300" }}
-              _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+              _hover={{ borderColor: "yellow.300" }}
+              _focus={{ borderColor: "yellow.300", boxShadow: "0 0 0 1px yellow.300" }}
             />
           </FormControl>
           
           <Button 
             type="submit" 
-            colorScheme="teal" 
+            colorScheme="yellow" 
             width="full"
             isLoading={loading}
             size="lg"
@@ -98,7 +98,7 @@ const Login = () => {
         
         <Flex mt={2} justify="center">
           <Text mr={2} color="gray.400">Don't have an account?</Text>
-          <Link as={RouterLink} to="/register" color="teal.300" _hover={{ color: "teal.200" }}>
+          <Link as={RouterLink} to="/register" color="yellow.300" _hover={{ color: "yellow.200" }}>
             Register
           </Link>
         </Flex>

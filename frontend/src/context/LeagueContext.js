@@ -1,6 +1,7 @@
 // frontend/src/context/LeagueContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useApi } from './ApiContext';
+import { useAuth } from './AuthContext';
 
 const LeagueContext = createContext();
 
@@ -9,10 +10,17 @@ export const LeagueProvider = ({ children }) => {
   const [userLeagues, setUserLeagues] = useState([]);
   const [loading, setLoading] = useState(true);
   const api = useApi();
+  const { isAuthenticated } = useAuth();
 
   // Load user leagues on mount
   useEffect(() => {
     const loadLeagues = async () => {
+      // Only attempt to load leagues if the user is authenticated
+      if (!isAuthenticated) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         setLoading(true);
         const leagues = await api.getUserLeagues();
@@ -34,7 +42,7 @@ export const LeagueProvider = ({ children }) => {
     };
     
     loadLeagues();
-  }, [api]);
+  }, [api, isAuthenticated]);
   
   // Set selected league and store in localStorage
   const selectLeague = (league) => {

@@ -7,6 +7,7 @@ import {
 } from '@chakra-ui/react';
 import { FaTrophy, FaUserFriends, FaChartLine } from 'react-icons/fa';
 import { useAuth } from '../context/AuthContext';
+import lolImage from './lol.png';
 
 const Feature = ({ icon, title, text }) => {
   return (
@@ -24,7 +25,7 @@ const Feature = ({ icon, title, text }) => {
         align="center"
         justify="center"
         rounded="full"
-        bg="teal.500"
+        bg="yellow.400"
         mb={4}
       >
         <Icon as={icon} color="white" w={6} h={6} />
@@ -56,7 +57,7 @@ const Home = () => {
                 as="h1" 
                 size="2xl" 
                 mb={6}
-                bgGradient="linear(to-r, teal.400, cyan.400)"
+                bgGradient="linear(to-r, yellow.400, orange.300)"
                 bgClip="text"
               >
                 Fantasy League of Legends
@@ -71,8 +72,8 @@ const Home = () => {
                     as={RouterLink} 
                     to="/leagues" 
                     size="lg" 
-                    colorScheme="teal"
-                    _hover={{ bg: 'teal.400' }}
+                    colorScheme="yellow"
+                    _hover={{ bg: 'yellow.500' }}
                   >
                     My Leagues
                   </Button>
@@ -81,8 +82,8 @@ const Home = () => {
                     as={RouterLink} 
                     to="/register" 
                     size="lg" 
-                    colorScheme="teal"
-                    _hover={{ bg: 'teal.400' }}
+                    colorScheme="yellow"
+                    _hover={{ bg: 'yellow.500' }}
                   >
                     Get Started
                   </Button>
@@ -94,7 +95,7 @@ const Home = () => {
                   variant="outline"
                   _hover={{ bg: 'whiteAlpha.100' }}
                   color="white"
-                  borderColor="teal.400"
+                  borderColor="yellow.400"
                 >
                   Browse Players
                 </Button>
@@ -102,11 +103,10 @@ const Home = () => {
             </Box>
             <Box flex={1}>
               <Image 
-                src="/hero-image.png" 
+                src={lolImage}
                 alt="Fantasy LoL"
                 fallbackSrc="https://via.placeholder.com/600x400?text=Fantasy+LoL" 
                 borderRadius="lg"
-                shadow="2xl"
               />
             </Box>
           </Flex>
@@ -155,7 +155,7 @@ const Home = () => {
             as={RouterLink} 
             to={isAuthenticated ? "/leagues" : "/register"} 
             size="lg" 
-            colorScheme="teal"
+            colorScheme="yellow.400"
             px={8}
           >
             {isAuthenticated ? "View My Leagues" : "Create Account"}

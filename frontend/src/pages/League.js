@@ -63,7 +63,7 @@ const League = () => {
           thickness="4px"
           speed="0.65s"
           emptyColor="gray.700"
-          color="teal.400"
+          color="yellow.400"
           size="xl"
         />
       </Center>
@@ -93,7 +93,7 @@ const League = () => {
       <Flex justify="space-between" align="center" mb={6}>
         <Heading color="white">{league.name}</Heading>
         <Button 
-          colorScheme="teal" 
+          colorScheme="yellow" 
           onClick={onOpen}
           isLoading={loading}
         >
@@ -126,7 +126,7 @@ const League = () => {
         
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={8}>
           <Box>
-            <Text fontWeight="bold" mb={2} color="teal.300">Schedule</Text>
+            <Text fontWeight="bold" mb={2} color="yellow.300">Schedule</Text>
             <Text color="gray.300">
               {league.schedule?.length ? (
                 `${league.schedule.length} week season with ${league.schedule.flat().length} total matchups`
@@ -137,7 +137,7 @@ const League = () => {
           </Box>
           
           <Box>
-            <Text fontWeight="bold" mb={2} color="teal.300">Team Distribution</Text>
+            <Text fontWeight="bold" mb={2} color="yellow.300">Team Distribution</Text>
             {league.teams?.length > 0 ? (
               <Text color="gray.300">
                 {league.teams.length} teams in the league
@@ -171,12 +171,12 @@ const League = () => {
                   bg="gray.700" 
                   color="white" 
                   borderColor="gray.600"
-                  _hover={{ borderColor: "teal.300" }}
-                  _focus={{ borderColor: "teal.300" }}
+                  _hover={{ borderColor: "yellow.300" }}
+                  _focus={{ borderColor: "yellow.300" }}
                 />
                 <NumberInputStepper>
-                  <NumberIncrementStepper color="teal.300" borderColor="gray.600" />
-                  <NumberDecrementStepper color="teal.300" borderColor="gray.600" />
+                  <NumberIncrementStepper color="yellow.300" borderColor="gray.600" />
+                  <NumberDecrementStepper color="yellow.300" borderColor="gray.600" />
                 </NumberInputStepper>
               </NumberInput>
             </FormControl>
@@ -187,7 +187,7 @@ const League = () => {
               Cancel
             </Button>
             <Button 
-              colorScheme="teal" 
+              colorScheme="yellow" 
               onClick={handleGenerateSchedule}
               isLoading={loading}
             >

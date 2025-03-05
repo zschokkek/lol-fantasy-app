@@ -17,6 +17,7 @@ import Matchups from './pages/Matchups';
 import Standings from './pages/Standings';
 import Draft from './pages/Draft';
 import ProtectedRoute from './components/ProtectedRoute';
+import LeagueRequiredRoute from './components/LeagueRequiredRoute';
 import { AuthProvider } from './context/AuthContext';
 import { ApiProvider } from './context/ApiContext';
 import { LeagueProvider } from './context/LeagueContext';
@@ -40,10 +41,22 @@ function App() {
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route path="/players" element={<Players />} />
-                    <Route path="/players/:id" element={<PlayerDetail />} />
                     
                     {/* Protected routes */}
+                    <Route path="/players" element={
+                      <ProtectedRoute>
+                        <LeagueRequiredRoute>
+                          <Players />
+                        </LeagueRequiredRoute>
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/players/:id" element={
+                      <ProtectedRoute>
+                        <LeagueRequiredRoute>
+                          <PlayerDetail />
+                        </LeagueRequiredRoute>
+                      </ProtectedRoute>
+                    } />
                     <Route path="/leagues" element={
                       <ProtectedRoute>
                         <Leagues />
@@ -71,17 +84,23 @@ function App() {
                     } />
                     <Route path="/matchups" element={
                       <ProtectedRoute>
-                        <Matchups />
+                        <LeagueRequiredRoute>
+                          <Matchups />
+                        </LeagueRequiredRoute>
                       </ProtectedRoute>
                     } />
                     <Route path="/standings" element={
                       <ProtectedRoute>
-                        <Standings />
+                        <LeagueRequiredRoute>
+                          <Standings />
+                        </LeagueRequiredRoute>
                       </ProtectedRoute>
                     } />
                     <Route path="/draft" element={
                       <ProtectedRoute>
-                        <Draft />
+                        <LeagueRequiredRoute>
+                          <Draft />
+                        </LeagueRequiredRoute>
                       </ProtectedRoute>
                     } />
                   </Routes>
