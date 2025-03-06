@@ -1,0 +1,33 @@
+/* Global styles to prevent white background during overscrolling */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  background-color: #1A202C; /* gray.900 equivalent in hex */
+  min-height: 100%;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden;
+  overscroll-behavior: none; /* Prevents bounce/overscroll effects */
+}
+
+/* Add subtle overscroll color transition */
+html {
+  background-color: #131720; /* Slightly darker than the main bg for a nice effect */
+}
+
+/* Special fix for mobile devices */
+@media (max-width: 768px) {
+  body {
+    width: 100vw;
+    height: 100vh;
+  }
+  
+  #root {
+    overflow-y: auto;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+}

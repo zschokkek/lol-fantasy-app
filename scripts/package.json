@@ -1,0 +1,13 @@
+{
+  "name": "fantasy-lol-scripts",
+  "version": "1.0.0",
+  "description": "Test scripts for Fantasy LoL application",
+  "main": "test-league-schedule.js",
+  "scripts": {
+    "test-league": "node test-league-schedule.js"
+  },
+  "dependencies": {
+    "axios": "^1.5.0",
+    "dotenv": "^16.3.1"
+  }
+}
