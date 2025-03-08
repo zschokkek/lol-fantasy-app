@@ -36,7 +36,7 @@ const PlayerCard = ({ player, position }) => {
         <Link 
           as={RouterLink} 
           to={`/players/${player.id}`} 
-          fontWeight="bold" 
+          fontWeight="bold"
           color="white"
         >
           {player.name}

@@ -245,11 +245,24 @@ export const ApiProvider = ({ children }) => {
       body: JSON.stringify(leagueData)
     }, false), [fetchData]);
 
-  const joinLeague = useCallback((leagueId, teamName) => 
-    fetchData(`/leagues/${leagueId}/join`, {
+  const joinLeague = useCallback(async (leagueId, teamName) => {
+    // Make the API call to join the league
+    const result = await fetchData(`/leagues/${leagueId}/join`, {
       method: 'POST',
       body: JSON.stringify({ teamName })
-    }, false), [fetchData]);
+    }, false);
+    
+    // Invalidate related caches to ensure fresh data on next fetch
+    // Clear specific cache entries rather than the entire cache
+    delete cacheRef.current[`/leagues/${leagueId}`];
+    delete cacheRef.current[`/leagues/${leagueId}/standings`];
+    delete cacheRef.current[`/teams/my-teams`];
+    delete cacheRef.current[`/leagues/user`];
+    
+    console.log('Cache invalidated for league, standings, and teams after joining league');
+    
+    return result;
+  }, [fetchData]);
 
   const scheduleDraft = useCallback((leagueId, draftDateTime, draftType) => 
     fetchData(`/leagues/${leagueId}/schedule-draft`, {
