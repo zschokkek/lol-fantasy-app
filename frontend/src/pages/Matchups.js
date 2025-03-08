@@ -1,15 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { 
   Box, Heading, SimpleGrid, Text, Flex, Link, 
   Badge, Select, Button, Spinner, useToast,
   Center, Modal, ModalOverlay, ModalContent, ModalHeader,
-  ModalBody, ModalCloseButton, ModalFooter, useDisclosure
+  ModalBody, ModalCloseButton, ModalFooter, useDisclosure,
+  Tooltip, Icon, HStack
 } from '@chakra-ui/react';
+import { CheckIcon, TimeIcon } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 import MatchupDetails from '../components/MatchupDetails';
 
 const MatchupCard = ({ matchup, onClick }) => {
+  // Determine if there's a winner (based on total points)
+  const homeWins = matchup.completed && matchup.homeScore > matchup.awayScore;
+  const awayWins = matchup.completed && matchup.awayScore > matchup.homeScore;
+  const isTie = matchup.completed && matchup.homeScore === matchup.awayScore;
   return (
     <Box 
       bg="gray.800" 
@@ -25,14 +31,19 @@ const MatchupCard = ({ matchup, onClick }) => {
       cursor="pointer"
     >
       {matchup.completed && (
-        <Badge 
-          position="absolute" 
-          top={2} 
-          right={2} 
-          colorScheme="yellow"
-        >
-          Completed
-        </Badge>
+        <HStack position="absolute" top={2} right={2} spacing={2}>
+          <Badge colorScheme="yellow">
+            Completed
+          </Badge>
+          {matchup.winnerUpdated && (
+            <Tooltip label="Win/Loss recorded" placement="top">
+              <Badge colorScheme="green">
+                <Icon as={CheckIcon} mr={1} />
+                Result Recorded
+              </Badge>
+            </Tooltip>
+          )}
+        </HStack>
       )}
       
       <Text textAlign="center" fontSize="sm" color="gray.400" mb={3}>
@@ -44,29 +55,28 @@ const MatchupCard = ({ matchup, onClick }) => {
         align="center" 
         p={3}
         bg={
-          matchup.completed && matchup.homeScore > matchup.awayScore
-            ? 'yellow.900'
-            : 'gray.700'
+          homeWins ? 'yellow.900' : 'gray.700'
         }
         rounded="md"
         borderWidth={1}
-        borderColor="gray.600"
+        borderColor={homeWins ? 'yellow.500' : 'gray.600'}
         mb={2}
       >
         <Link as={RouterLink} to={`/teams/${matchup.homeTeam.id}`} fontWeight="bold" color="white">
           {matchup.homeTeam.name}
         </Link>
-        <Text 
-          fontWeight="bold" 
-          fontSize="xl"
-          color={
-            matchup.completed && matchup.homeScore > matchup.awayScore
-              ? 'yellow.200'
-              : 'white'
-          }
-        >
-          {matchup.homeScore.toFixed(1)}
-        </Text>
+        <Flex align="center">
+          <Text 
+            fontWeight="bold" 
+            fontSize="xl"
+            color={homeWins ? 'yellow.200' : 'white'}
+          >
+            {matchup.homeScore.toFixed(1)}
+          </Text>
+          {homeWins && matchup.winnerUpdated && (
+            <Badge ml={2} colorScheme="green" variant="solid">WIN</Badge>
+          )}
+        </Flex>
       </Flex>
       
       <Flex 
@@ -74,35 +84,36 @@ const MatchupCard = ({ matchup, onClick }) => {
         align="center"
         p={3}
         bg={
-          matchup.completed && matchup.awayScore > matchup.homeScore
-            ? 'yellow.900'
-            : 'gray.700'
+          awayWins ? 'yellow.900' : 'gray.700'
         }
         rounded="md"
         borderWidth={1}
-        borderColor="gray.600"
+        borderColor={awayWins ? 'yellow.500' : 'gray.600'}
       >
         <Link as={RouterLink} to={`/teams/${matchup.awayTeam.id}`} fontWeight="bold" color="white">
           {matchup.awayTeam.name}
         </Link>
-        <Text 
-          fontWeight="bold" 
-          fontSize="xl"
-          color={
-            matchup.completed && matchup.awayScore > matchup.homeScore
-              ? 'yellow.200'
-              : 'white'
-          }
-        >
-          {matchup.awayScore.toFixed(1)}
-        </Text>
+        <Flex align="center">
+          <Text 
+            fontWeight="bold" 
+            fontSize="xl"
+            color={awayWins ? 'yellow.200' : 'white'}
+          >
+            {matchup.awayScore.toFixed(1)}
+          </Text>
+          {awayWins && matchup.winnerUpdated && (
+            <Badge ml={2} colorScheme="green" variant="solid">WIN</Badge>
+          )}
+        </Flex>
       </Flex>
       
       {matchup.completed && (
         <Text fontSize="sm" textAlign="center" mt={3} fontWeight="medium" color="gray.300">
-          {matchup.homeScore > matchup.awayScore
-            ? `${matchup.homeTeam.name} wins by ${(matchup.homeScore - matchup.awayScore).toFixed(1)}`
-            : `${matchup.awayTeam.name} wins by ${(matchup.awayScore - matchup.homeScore).toFixed(1)}`
+          {isTie
+            ? `Tie game: ${matchup.homeScore.toFixed(1)} - ${matchup.awayScore.toFixed(1)}`
+            : homeWins
+              ? `${matchup.homeTeam.name} wins by ${(matchup.homeScore - matchup.awayScore).toFixed(1)}`
+              : `${matchup.awayTeam.name} wins by ${(matchup.awayScore - matchup.homeScore).toFixed(1)}`
           }
         </Text>
       )}
@@ -111,7 +122,7 @@ const MatchupCard = ({ matchup, onClick }) => {
 };
 
 const Matchups = () => {
-  const { getLeague, getMatchups, calculateWeekScores, loading, error } = useApi();
+  const { getLeague, getMatchups, calculateWeekScores, evaluateMatchupWins, loading, error } = useApi();
   const [league, setLeague] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [matchups, setMatchups] = useState([]);
@@ -150,7 +161,7 @@ const Matchups = () => {
     }
   };
   
-  const handleCalculateScores = async () => {
+  const handleCalculateScores = useCallback(async () => {
     try {
       const updatedMatchups = await calculateWeekScores(league.id, selectedWeek);
       
@@ -172,7 +183,49 @@ const Matchups = () => {
         isClosable: true,
       });
     }
-  };
+  }, [calculateWeekScores, league, selectedWeek, toast]);
+  
+  const handleEvaluateWins = useCallback(async () => {
+    try {
+      const updatedMatchups = await evaluateMatchupWins(league.id, selectedWeek);
+      
+      toast({
+        title: 'Matchup Wins Evaluated',
+        description: 'Weekly matchup winners have been determined and recorded',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+      
+      setMatchups(updatedMatchups);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to evaluate matchup wins',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  }, [evaluateMatchupWins, league, selectedWeek, toast]);
+  
+  // Auto-evaluate on mount if today is Monday
+  useEffect(() => {
+    if (league && matchups.length > 0) {
+      const today = new Date();
+      const isMonday = today.getDay() === 1; // 0 is Sunday, 1 is Monday
+      
+      // Auto-evaluate wins on Mondays for the previous week
+      if (isMonday) {
+        // Only auto-evaluate if we have matchups and they're not already evaluated
+        const needsEvaluation = matchups.some(m => m.completed && !m.winnerUpdated);
+        
+        if (needsEvaluation) {
+          handleEvaluateWins();
+        }
+      }
+    }
+  }, [league, matchups, handleEvaluateWins]);
   
   if (loading && !league) {
     return (

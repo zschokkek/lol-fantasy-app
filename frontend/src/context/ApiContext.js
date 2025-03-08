@@ -204,6 +204,11 @@ export const ApiProvider = ({ children }) => {
       method: 'POST'
     }, false), [fetchData]);
   
+  const evaluateMatchupWins = useCallback((leagueId, week) => 
+    fetchData(`/leagues/${leagueId}/matchups/${week}/evaluate-wins`, {
+      method: 'POST'
+    }, false), [fetchData]);
+  
   const generateSchedule = useCallback((leagueId, weeks) => 
     fetchData(`/leagues/${leagueId}/schedule`, {
       method: 'POST',
@@ -321,6 +326,7 @@ export const ApiProvider = ({ children }) => {
     getStandings,
     getMatchups,
     calculateWeekScores,
+    evaluateMatchupWins,
     setSchedule: generateSchedule,
     updateAllStats,
     
