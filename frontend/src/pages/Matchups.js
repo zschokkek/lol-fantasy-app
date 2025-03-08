@@ -3,11 +3,13 @@ import { Link as RouterLink } from 'react-router-dom';
 import { 
   Box, Heading, SimpleGrid, Text, Flex, Link, 
   Badge, Select, Button, Spinner, useToast,
-  Center
+  Center, Modal, ModalOverlay, ModalContent, ModalHeader,
+  ModalBody, ModalCloseButton, ModalFooter, useDisclosure
 } from '@chakra-ui/react';
 import { useApi } from '../context/ApiContext';
+import MatchupDetails from '../components/MatchupDetails';
 
-const MatchupCard = ({ matchup }) => {
+const MatchupCard = ({ matchup, onClick }) => {
   return (
     <Box 
       bg="gray.800" 
@@ -18,14 +20,16 @@ const MatchupCard = ({ matchup }) => {
       borderColor="gray.700"
       position="relative"
       transition="transform 0.2s"
-      _hover={{ transform: 'translateY(-2px)' }}
+      _hover={{ transform: 'translateY(-2px)', borderColor: 'yellow.400' }}
+      onClick={onClick}
+      cursor="pointer"
     >
       {matchup.completed && (
         <Badge 
           position="absolute" 
           top={2} 
           right={2} 
-          colorScheme="teal"
+          colorScheme="yellow"
         >
           Completed
         </Badge>
@@ -41,7 +45,7 @@ const MatchupCard = ({ matchup }) => {
         p={3}
         bg={
           matchup.completed && matchup.homeScore > matchup.awayScore
-            ? 'teal.900'
+            ? 'yellow.900'
             : 'gray.700'
         }
         rounded="md"
@@ -57,7 +61,7 @@ const MatchupCard = ({ matchup }) => {
           fontSize="xl"
           color={
             matchup.completed && matchup.homeScore > matchup.awayScore
-              ? 'teal.200'
+              ? 'yellow.200'
               : 'white'
           }
         >
@@ -71,7 +75,7 @@ const MatchupCard = ({ matchup }) => {
         p={3}
         bg={
           matchup.completed && matchup.awayScore > matchup.homeScore
-            ? 'teal.900'
+            ? 'yellow.900'
             : 'gray.700'
         }
         rounded="md"
@@ -86,7 +90,7 @@ const MatchupCard = ({ matchup }) => {
           fontSize="xl"
           color={
             matchup.completed && matchup.awayScore > matchup.homeScore
-              ? 'teal.200'
+              ? 'yellow.200'
               : 'white'
           }
         >
@@ -111,6 +115,8 @@ const Matchups = () => {
   const [league, setLeague] = useState(null);
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [matchups, setMatchups] = useState([]);
+  const [selectedMatchup, setSelectedMatchup] = useState(null);
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
   
   useEffect(() => {
@@ -175,7 +181,7 @@ const Matchups = () => {
           thickness="4px"
           speed="0.65s"
           emptyColor="gray.700"
-          color="teal.400"
+          color="yellow.400"
           size="xl"
         />
       </Center>
@@ -197,7 +203,7 @@ const Matchups = () => {
   
   return (
     <Box>
-      <Heading mb={6} color="white">Weekly Matchups</Heading>
+      <Heading mb={6} color="white" bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">Weekly Matchups</Heading>
       
       <Flex 
         gap={4} 
@@ -212,7 +218,7 @@ const Matchups = () => {
           bg="gray.700"
           color="white"
           borderColor="gray.600"
-          _hover={{ borderColor: 'teal.400' }}
+          _hover={{ borderColor: 'yellow.400' }}
         >
           {weekOptions.map(week => (
             <option key={week} value={week} style={{ backgroundColor: '#2D3748' }}>
@@ -222,21 +228,60 @@ const Matchups = () => {
         </Select>
         
         <Button 
-          colorScheme="teal" 
+          colorScheme="yellow" 
           onClick={handleCalculateScores}
           isLoading={loading}
           isDisabled={matchups.every(m => m.completed)}
+          _hover={{ bg: 'yellow.500' }}
         >
           Calculate Week {selectedWeek} Scores
         </Button>
       </Flex>
       
       {matchups.length > 0 ? (
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-          {matchups.map(matchup => (
-            <MatchupCard key={matchup.id} matchup={matchup} />
-          ))}
-        </SimpleGrid>
+        <>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+            {matchups.map(matchup => (
+              <MatchupCard 
+                key={matchup.id} 
+                matchup={matchup} 
+                onClick={() => {
+                  setSelectedMatchup(matchup);
+                  onOpen();
+                }}
+              />
+            ))}
+          </SimpleGrid>
+          
+          {/* Matchup Details Modal */}
+          <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+            <ModalOverlay backgroundColor="rgba(0, 0, 0, 0.75)" />
+            <ModalContent bg="gray.900" borderColor="yellow.400" borderWidth={1}>
+              <ModalHeader>
+                <Text bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">
+                  Detailed Matchup
+                </Text>
+              </ModalHeader>
+              <ModalCloseButton color="gray.400" />
+              <ModalBody pb={6}>
+                {selectedMatchup && (
+                  <MatchupDetails matchup={selectedMatchup} />
+                )}
+              </ModalBody>
+              <ModalFooter>
+                <Button 
+                  onClick={onClose} 
+                  variant="outline" 
+                  borderColor="yellow.400" 
+                  color="white"
+                  _hover={{ bg: 'yellow.800' }}
+                >
+                  Close
+                </Button>
+              </ModalFooter>
+            </ModalContent>
+          </Modal>
+        </>
       ) : (
         <Box p={6} bg="gray.800" rounded="md" textAlign="center" borderWidth={1} borderColor="gray.700">
           <Text color="gray.400">
