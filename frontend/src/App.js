@@ -17,6 +17,9 @@ import Matchups from './pages/Matchups';
 import Standings from './pages/Standings';
 import Draft from './pages/Draft';
 import Trade from './pages/Trade';
+import Friends from './pages/Friends';
+import Messages from './pages/Messages';
+import Conversation from './pages/Conversation';
 import ProtectedRoute from './components/ProtectedRoute';
 import LeagueRequiredRoute from './components/LeagueRequiredRoute';
 import { AuthProvider } from './context/AuthContext';
@@ -109,15 +112,6 @@ function App() {
                         </LeagueRequiredRoute>
                       </ProtectedRoute>
                     } />
-                  </Routes>
-                </Box>
-              </Box>
-            </Router>
-          </LeagueProvider>
-        </ApiProvider>
-      </AuthProvider>
-    </ChakraProvider>
-  );
-}
-
-export default App;
+                    
+                    {/* Friends and Messaging routes */}
+         

@@ -31,9 +31,22 @@ const userSchema = new mongoose.Schema({
     type: String,
     ref: 'League'
   }],
+  friends: [{
+    type: String,
+    ref: 'User'
+  }],
   isAdmin: {
     type: Boolean,
     default: false
+  },
+  avatar: {
+    type: String,
+    default: ''
+  },
+  status: {
+    type: String,
+    enum: ['online', 'offline', 'away'],
+    default: 'offline'
   }
 }, {
   timestamps: true
@@ -62,7 +75,10 @@ userSchema.methods.toSafeJSON = function() {
     email: this.email,
     teams: this.teams,
     leagues: this.leagues,
-    isAdmin: this.isAdmin
+    friends: this.friends,
+    isAdmin: this.isAdmin,
+    avatar: this.avatar,
+    status: this.status
   };
 };
 
@@ -74,7 +90,10 @@ userSchema.methods.toJSON = function() {
     email: this.email,
     teams: this.teams,
     leagues: this.leagues,
-    isAdmin: this.isAdmin
+    friends: this.friends,
+    isAdmin: this.isAdmin,
+    avatar: this.avatar,
+    status: this.status
   };
 };
 

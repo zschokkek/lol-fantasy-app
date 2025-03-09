@@ -293,65 +293,38 @@ export const ApiProvider = ({ children }) => {
       method: 'POST',
       body: JSON.stringify({ newOwnerId })
     }, false), [fetchData]);
-  
-  const value = {
-    loading,
-    error,
-    clearCache, // Expose cache clearing function
-    // Player methods
-    getPlayers,
-    getPlayersByRegion,
-    getPlayersByPosition,
-    getPlayerById,
-    updatePlayerStats,
     
-    // Team methods
-    getTeams,
-    getMyTeams,
-    getTeamById,
-    createTeam,
-    addPlayerToTeam,
-    removePlayerFromTeam,
+  // Friends-related API methods
+  const getFriends = useCallback(() => 
+    fetchData('/friends', {}, true), [fetchData]);
     
-    // New league methods
-    getLeagues,
-    getUserLeagues,
-    getLeagueById,
-    createLeague,
-    joinLeague,
-    scheduleDraft,
+  const getFriendRequests = useCallback(() => 
+    fetchData('/friends/requests', {}, true), [fetchData]);
     
-    // Original league methods
-    getLeague,
-    getStandings,
-    getMatchups,
-    calculateWeekScores,
-    evaluateMatchupWins,
-    setSchedule: generateSchedule,
-    updateAllStats,
+  const sendFriendRequest = useCallback((userId) => 
+    fetchData('/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    }, false), [fetchData]);
     
-    // Draft methods
-    getDraftStatus,
-    draftPlayer,
+  const acceptFriendRequest = useCallback((requestId) => 
+    fetchData(`/friends/request/${requestId}/accept`, {
+      method: 'POST'
+    }, false), [fetchData]);
     
-    // User-specific methods
-    getUserTeams,
-    updateUserProfile,
-    getUserRights,
-    transferTeamOwnership
-  };
-  
-  return (
-    <ApiContext.Provider value={value}>
-      {children}
-    </ApiContext.Provider>
-  );
-};
-
-export const useApi = () => {
-  const context = useContext(ApiContext);
-  if (context === undefined) {
-    throw new Error('useApi must be used within an ApiProvider');
-  }
-  return context;
-};
+  const rejectFriendRequest = useCallback((requestId) => 
+    fetchData(`/friends/request/${requestId}/reject`, {
+      method: 'POST'
+    }, false), [fetchData]);
+    
+  const removeFriend = useCallback((friendId) => 
+    fetchData(`/friends/${friendId}`, {
+      method: 'DELETE'
+    }, false), [fetchData]);
+    
+  const searchUsers = useCallback((query) => 
+    fetchData(`/users/search?q=${encodeURIComponent(query)}`, {}, false), [fetchData]);
+    
+  // Messages-related API methods
+  const getConversations = useCallback(() => 
+    fetchData('/messages/conversations', {},
