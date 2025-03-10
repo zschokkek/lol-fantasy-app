@@ -21,7 +21,7 @@ const connectDB = require('./config/db');
 connectDB();
 
 // Import models
-const { Player, FantasyTeam, League, User, Trade } = require('./models');
+const { Player, FantasyTeam, League, User, Trade, FriendRequest, Conversation, Message } = require('./models');
 
 // Import fantasy league core modules
 const { 
@@ -191,151 +191,6 @@ async function initializeData() {
     console.error('Error initializing data:', error);
   }
 }
-
-// // Helper function to load sample players
-// async function loadSamplePlayers() {
-//   console.log('DEBUG: Loading players from pro_teams.json');
-//   try {
-//     // Load pro_teams.json
-//     const proTeamsData = await loadJsonFile(path.join(DATA_DIR, 'pro_teams.json'));
-    
-//     if (!proTeamsData || !Array.isArray(proTeamsData)) {
-//       console.error('DEBUG: Failed to load pro_teams.json or invalid format');
-//       return;
-//     }
-    
-//     console.log(`DEBUG: Loaded ${proTeamsData.length} teams from pro_teams.json`);
-    
-//     // Filter teams from specified home leagues
-//     const targetLeagues = ['LTA North', 'LTA South', 'LEC', 'LCK', 'LPL'];
-//     const filteredTeams = proTeamsData.filter(team => 
-//       team.homeLeague && 
-//       targetLeagues.includes(team.homeLeague.name) && 
-//       team.players && 
-//       team.players.length > 0
-//     );
-    
-//     console.log(`DEBUG: Found ${filteredTeams.length} teams from target leagues: ${targetLeagues.join(', ')}`);
-    
-//     // Extract and transform players from these teams
-//     const players = [];
-//     let playerId = 1;
-    
-//     filteredTeams.forEach(team => {
-//       console.log(`DEBUG: Processing team ${team.name} with ${team.players.length} players from ${team.homeLeague.name}`);
-      
-//       team.players.forEach(player => {
-//         // Map role to position format used in the app
-//         let position = player.role ? player.role.toUpperCase() : 'UNKNOWN';
-//         if (position === 'BOTTOM') position = 'ADC';
-        
-        // players.push({
-        //   id: `p${playerId++}`,
-        //   name: player.summonerName || player.name,
-        //   position: position,
-        //   team: team.name,
-        //   region: team.homeLeague.region,
-        //   homeLeague: team.homeLeague.name,
-        //   firstName: player.firstName || '',
-        //   lastName: player.lastName || '',
-        //   stats: {
-        //     kills: Math.floor(Math.random() * 50) + 20,
-        //     deaths: Math.floor(Math.random() * 30) + 10,
-        //     assists: Math.floor(Math.random() * 70) + 30,
-        //     cs: Math.floor(Math.random() * 2000) + 2000,
-        //     visionScore: Math.floor(Math.random() * 200) + 100,
-        //     baronKills: Math.floor(Math.random() * 5),
-        //     dragonKills: Math.floor(Math.random() * 5),
-        //     turretKills: Math.floor(Math.random() * 10) + 5,
-        //     gamesPlayed: 15
-        //   },
-        //   fantasyPoints: Math.floor(Math.random() * 200) + 100
-        // });
-//       });
-//     });
-    
-//     console.log(`DEBUG: Extracted ${players.length} players from target leagues`);
-    
-//     // Load player data
-//     playerService.loadPlayersFromData(players);
-//     console.log('DEBUG: Players loaded into playerService');
-    
-//     // Save the players to MongoDB
-//     for (const player of players) {
-//       const existingPlayer = await Player.findOne({ id: player.id });
-      
-//       if (existingPlayer) {
-//         console.log(`DEBUG: Updating existing player ${player.id}`);
-//         existingPlayer.name = player.name;
-//         existingPlayer.position = player.position;
-//         existingPlayer.team = player.team;
-//         existingPlayer.region = player.region;
-//         existingPlayer.homeLeague = player.homeLeague;
-//         existingPlayer.firstName = player.firstName;
-//         existingPlayer.lastName = player.lastName;
-//         existingPlayer.stats = player.stats;
-//         existingPlayer.fantasyPoints = player.fantasyPoints;
-        
-//         await existingPlayer.save();
-//       } else {
-//         console.log(`DEBUG: Creating new player ${player.id}`);
-//         const newPlayer = new Player({
-//           id: player.id,
-//           name: player.name,
-//           position: player.position,
-//           team: player.team,
-//           region: player.region,
-//           homeLeague: player.homeLeague,
-//           firstName: player.firstName,
-//           lastName: player.lastName,
-//           stats: player.stats,
-//           fantasyPoints: player.fantasyPoints
-//         });
-//         await newPlayer.save();
-//       }
-//     }
-    
-//     console.log('DEBUG: Players saved to MongoDB');
-//   } catch (error) {
-//     console.error('DEBUG: Error loading players from pro_teams.json:', error);
-    
-//     // Fallback to default sample players if there's an error
-//     console.log('DEBUG: Using fallback sample players');
-//     const samplePlayers = [
-//       // LCK (Korea)
-//       { id: "lck1", name: "LCKTop1", position: "TOP", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-//       { id: "lck2", name: "LCKJungle1", position: "JUNGLE", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-//       { id: "lck3", name: "LCKMid1", position: "MID", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-//       { id: "lck4", name: "LCKADC1", position: "ADC", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-//       { id: "lck5", name: "LCKSupport1", position: "SUPPORT", team: "T1", region: "LCK", homeLeague: "LCK", stats: { kills: 42, deaths: 28, assists: 54, cs: 3420, visionScore: 230, baronKills: 3, dragonKills: 2, turretKills: 12, gamesPlayed: 15 }, fantasyPoints: 294.5 },
-      
-//       // LEC (Europe)
-//       { id: "lec1", name: "LECTop1", position: "TOP", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
-//       { id: "lec2", name: "LECJungle1", position: "JUNGLE", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
-//       { id: "lec3", name: "LECMid1", position: "MID", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
-//       { id: "lec4", name: "LECADC1", position: "ADC", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
-//       { id: "lec5", name: "LECSupport1", position: "SUPPORT", team: "G2 Esports", region: "LEC", homeLeague: "LEC", stats: { kills: 38, deaths: 25, assists: 45, cs: 3300, visionScore: 210, baronKills: 2, dragonKills: 3, turretKills: 10, gamesPlayed: 15 }, fantasyPoints: 270.5 },
-      
-//       // LPL (China)
-//       { id: "lpl1", name: "LPLTop1", position: "TOP", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
-//       { id: "lpl2", name: "LPLJungle1", position: "JUNGLE", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
-//       { id: "lpl3", name: "LPLMid1", position: "MID", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
-//       { id: "lpl4", name: "LPLADC1", position: "ADC", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
-//       { id: "lpl5", name: "LPLSupport1", position: "SUPPORT", team: "JD Gaming", region: "LPL", homeLeague: "LPL", stats: { kills: 45, deaths: 30, assists: 50, cs: 3500, visionScore: 220, baronKills: 4, dragonKills: 2, turretKills: 11, gamesPlayed: 15 }, fantasyPoints: 280.5 },
-      
-//       // LCS (North America)
-//       { id: "lcs1", name: "LCSTop1", position: "TOP", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
-//       { id: "lcs2", name: "LCSJungle1", position: "JUNGLE", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
-//       { id: "lcs3", name: "LCSMid1", position: "MID", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
-//       { id: "lcs4", name: "LCSADC1", position: "ADC", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 },
-//       { id: "lcs5", name: "LCSSupport1", position: "SUPPORT", team: "Cloud9", region: "LCS", homeLeague: "LCS", stats: { kills: 35, deaths: 22, assists: 48, cs: 3250, visionScore: 205, baronKills: 2, dragonKills: 3, turretKills: 9, gamesPlayed: 15 }, fantasyPoints: 265.5 }
-//     ];
-    
-//     // Load player data
-//     playerService.loadPlayersFromData(samplePlayers);
-//   }
-// }
-
 // Helper function to save league data
 async function saveLeagueData() {
   console.log('DEBUG: Starting saveLeagueData function');
@@ -2323,6 +2178,435 @@ app.post('/api/trades/:tradeId/cancel', auth, async (req, res) => {
   }
 });
 
+// FRIEND REQUEST ENDPOINTS
+
+// Send a friend request
+app.post('/api/friends/request', auth, async (req, res) => {
+  try {
+    const { recipientId } = req.body;
+    const senderId = req.user.id;
+    
+    if (!recipientId) {
+      return res.status(400).json({ message: 'Recipient ID is required' });
+    }
+    
+    // Check if recipient exists
+    const recipient = await User.findOne({ id: recipientId });
+    if (!recipient) {
+      return res.status(404).json({ message: 'Recipient not found' });
+    }
+    
+    // Check if sender is trying to add themselves
+    if (senderId === recipientId) {
+      return res.status(400).json({ message: 'You cannot send a friend request to yourself' });
+    }
+    
+    // Check if there's an existing request between these users
+    const existingRequest = await FriendRequest.findOne({
+      $or: [
+        { sender: senderId, recipient: recipientId },
+        { sender: recipientId, recipient: senderId }
+      ]
+    });
+    
+    if (existingRequest) {
+      if (existingRequest.status === 'pending') {
+        return res.status(400).json({ message: 'A friend request already exists between these users' });
+      } else if (existingRequest.status === 'accepted') {
+        return res.status(400).json({ message: 'These users are already friends' });
+      }
+    }
+    
+    // Create a new friend request
+    const friendRequest = new FriendRequest({
+      id: `fr-${Date.now()}-${Math.round(Math.random() * 10000)}`,
+      sender: senderId,
+      recipient: recipientId,
+      status: 'pending'
+    });
+    
+    await friendRequest.save();
+    
+    return res.status(201).json({ message: 'Friend request sent successfully', friendRequest });
+  } catch (error) {
+    console.error('Error sending friend request:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all friend requests for a user
+app.get('/api/friends/requests', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all requests where the user is either sender or recipient
+    const requests = await FriendRequest.find({
+      $or: [
+        { sender: userId },
+        { recipient: userId }
+      ]
+    }).sort({ createdAt: -1 });
+    
+    return res.json(requests);
+  } catch (error) {
+    console.error('Error getting friend requests:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Respond to a friend request (accept or reject)
+app.put('/api/friends/requests/:requestId', auth, async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { status } = req.body; // 'accepted' or 'rejected'
+    const userId = req.user.id;
+    
+    if (!status || !['accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Valid status (accepted or rejected) is required' });
+    }
+    
+    // Find the request
+    const request = await FriendRequest.findOne({ id: requestId });
+    
+    if (!request) {
+      return res.status(404).json({ message: 'Friend request not found' });
+    }
+    
+    // Make sure the user is the recipient of the request
+    if (request.recipient !== userId) {
+      return res.status(403).json({ message: 'Only the recipient can respond to a friend request' });
+    }
+    
+    // Update request status
+    request.status = status;
+    await request.save();
+    
+    return res.json({ message: `Friend request ${status}`, request });
+  } catch (error) {
+    console.error('Error responding to friend request:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get friend list
+app.get('/api/friends', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all accepted friend requests where the user is either sender or recipient
+    const friendRequests = await FriendRequest.find({
+      status: 'accepted',
+      $or: [
+        { sender: userId },
+        { recipient: userId }
+      ]
+    });
+    
+    // Extract friend IDs
+    const friendIds = friendRequests.map(request => {
+      return request.sender === userId ? request.recipient : request.sender;
+    });
+    
+    // Get friend user objects
+    const friends = await User.find({ id: { $in: friendIds } })
+      .select('-password');
+    
+    return res.json(friends);
+  } catch (error) {
+    console.error('Error getting friend list:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Remove a friend
+app.delete('/api/friends/:friendId', auth, async (req, res) => {
+  try {
+    const { friendId } = req.params;
+    const userId = req.user.id;
+    
+    // Find the friendship
+    const friendRequest = await FriendRequest.findOne({
+      status: 'accepted',
+      $or: [
+        { sender: userId, recipient: friendId },
+        { sender: friendId, recipient: userId }
+      ]
+    });
+    
+    if (!friendRequest) {
+      return res.status(404).json({ message: 'Friendship not found' });
+    }
+    
+    // Delete the friendship
+    await FriendRequest.deleteOne({ _id: friendRequest._id });
+    
+    return res.json({ message: 'Friend removed successfully' });
+  } catch (error) {
+    console.error('Error removing friend:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// MESSAGING ENDPOINTS
+
+// Get user conversations
+app.get('/api/conversations', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Find all conversations where the user is a participant
+    const conversations = await Conversation.find({
+      participants: userId
+    }).populate('lastMessage').sort({ updatedAt: -1 });
+    
+    // For each conversation, determine other participants
+    const populatedConversations = await Promise.all(conversations.map(async (conv) => {
+      const otherParticipants = await User.find({
+        id: { $in: conv.participants.filter(id => id !== userId) }
+      }).select('id username');
+      
+      return {
+        ...conv.toObject(),
+        otherParticipants,
+        unreadCount: (conv.unreadCounts && conv.unreadCounts.get(userId)) || 0
+      };
+    }));
+    
+    return res.json(populatedConversations);
+  } catch (error) {
+    console.error('Error getting conversations:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create a new conversation
+app.post('/api/conversations', auth, async (req, res) => {
+  try {
+    const { participantIds, initialMessage } = req.body;
+    const userId = req.user.id;
+    
+    if (!participantIds || !participantIds.length) {
+      return res.status(400).json({ message: 'At least one participant ID is required' });
+    }
+    
+    // Make sure the current user is included in participants
+    const allParticipants = Array.from(new Set([userId, ...participantIds]));
+    
+    // Check if participants exist
+    const participantCount = await User.countDocuments({
+      id: { $in: allParticipants }
+    });
+    
+    if (participantCount !== allParticipants.length) {
+      return res.status(404).json({ message: 'One or more participants not found' });
+    }
+    
+    // Check if a conversation already exists with the same participants
+    const existingConversation = await Conversation.findOne({
+      participants: { $size: allParticipants.length, $all: allParticipants }
+    });
+    
+    if (existingConversation) {
+      // If initialMessage is provided, add it to the existing conversation
+      if (initialMessage) {
+        const newMessage = new Message({
+          sender: userId,
+          conversation: existingConversation.id,
+          content: initialMessage,
+          readBy: [userId]
+        });
+        
+        await newMessage.save();
+        
+        // Update the conversation's lastMessage
+        existingConversation.lastMessage = newMessage._id;
+        await existingConversation.save();
+      }
+      
+      return res.json({
+        message: 'Existing conversation found',
+        conversation: existingConversation
+      });
+    }
+    
+    // Create a new conversation
+    const conversation = new Conversation({
+      id: `conv-${Date.now()}-${Math.round(Math.random() * 10000)}`,
+      participants: allParticipants,
+      unreadCounts: new Map(allParticipants.filter(p => p !== userId).map(p => [p, 0]))
+    });
+    
+    await conversation.save();
+    
+    // If initialMessage is provided, create it
+    if (initialMessage) {
+      const message = new Message({
+        sender: userId,
+        conversation: conversation.id,
+        content: initialMessage,
+        readBy: [userId]
+      });
+      
+      await message.save();
+      
+      // Update the conversation's lastMessage
+      conversation.lastMessage = message._id;
+      await conversation.save();
+    }
+    
+    return res.status(201).json({
+      message: 'Conversation created successfully',
+      conversation
+    });
+  } catch (error) {
+    console.error('Error creating conversation:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get messages for a conversation
+app.get('/api/conversations/:conversationId/messages', auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    const { limit = 20, before } = req.query;
+    
+    // Find the conversation
+    const conversation = await Conversation.findOne({ id: conversationId });
+    
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+    
+    // Make sure the user is a participant
+    if (!conversation.participants.includes(userId)) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+    
+    // Build query for messages
+    const query = { conversation: conversationId };
+    if (before) {
+      const beforeMessage = await Message.findById(before);
+      if (beforeMessage) {
+        query.createdAt = { $lt: beforeMessage.createdAt };
+      }
+    }
+    
+    // Get messages
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('sender', 'id username');
+    
+    // Mark messages as read
+    await Message.updateMany(
+      { conversation: conversationId, readBy: { $ne: userId } },
+      { $addToSet: { readBy: userId } }
+    );
+    
+    // Reset unread count for this user in the conversation
+    if (conversation.unreadCounts) {
+      conversation.unreadCounts.set(userId, 0);
+      await conversation.save();
+    }
+    
+    return res.json(messages.reverse()); // Return in chronological order
+  } catch (error) {
+    console.error('Error getting messages:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Send a message
+app.post('/api/conversations/:conversationId/messages', auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const { content } = req.body;
+    const userId = req.user.id;
+    
+    if (!content) {
+      return res.status(400).json({ message: 'Message content is required' });
+    }
+    
+    // Find the conversation
+    const conversation = await Conversation.findOne({ id: conversationId });
+    
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+    
+    // Make sure the user is a participant
+    if (!conversation.participants.includes(userId)) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+    
+    // Create the message
+    const message = new Message({
+      sender: userId,
+      conversation: conversationId,
+      content,
+      readBy: [userId]
+    });
+    
+    await message.save();
+    
+    // Update conversation's lastMessage and increment unread counts
+    conversation.lastMessage = message._id;
+    
+    // Increment unread count for all participants except sender
+    conversation.participants.forEach(participantId => {
+      if (participantId !== userId) {
+        const currentCount = conversation.unreadCounts.get(participantId) || 0;
+        conversation.unreadCounts.set(participantId, currentCount + 1);
+      }
+    });
+    
+    await conversation.save();
+    
+    // Return the message
+    return res.status(201).json(message);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Mark conversation as read
+app.put('/api/conversations/:conversationId/read', auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    
+    // Find the conversation
+    const conversation = await Conversation.findOne({ id: conversationId });
+    
+    if (!conversation) {
+      return res.status(404).json({ message: 'Conversation not found' });
+    }
+    
+    // Make sure the user is a participant
+    if (!conversation.participants.includes(userId)) {
+      return res.status(403).json({ message: 'You are not a participant in this conversation' });
+    }
+    
+    // Mark all messages as read
+    await Message.updateMany(
+      { conversation: conversationId, readBy: { $ne: userId } },
+      { $addToSet: { readBy: userId } }
+    );
+    
+    // Reset unread count
+    if (conversation.unreadCounts) {
+      conversation.unreadCounts.set(userId, 0);
+      await conversation.save();
+    }
+    
+    return res.json({ message: 'Conversation marked as read' });
+  } catch (error) {
+    console.error('Error marking conversation as read:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 // Start server
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);

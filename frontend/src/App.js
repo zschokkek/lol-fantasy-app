@@ -114,4 +114,30 @@ function App() {
                     } />
                     
                     {/* Friends and Messaging routes */}
-         
+                    <Route path="/friends" element={
+                      <ProtectedRoute>
+                        <Friends />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/messages" element={
+                      <ProtectedRoute>
+                        <Messages />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/messages/:id" element={
+                      <ProtectedRoute>
+                        <Conversation />
+                      </ProtectedRoute>
+                    } />
+                  </Routes>
+                </Box>
+              </Box>
+            </Router>
+          </LeagueProvider>
+        </ApiProvider>
+      </AuthProvider>
+    </ChakraProvider>
+  );
+}
+
+export default App;

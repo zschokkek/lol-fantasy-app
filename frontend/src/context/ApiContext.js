@@ -327,4 +327,106 @@ export const ApiProvider = ({ children }) => {
     
   // Messages-related API methods
   const getConversations = useCallback(() => 
-    fetchData('/messages/conversations', {},
+    fetchData('/messages/conversations', {}, false), [fetchData]);
+    
+  const getConversation = useCallback((conversationId) => 
+    fetchData(`/messages/conversations/${conversationId}`, {}, false), [fetchData]);
+    
+  const getMessages = useCallback((conversationId, page = 1, limit = 20) => 
+    fetchData(`/messages/conversations/${conversationId}/messages?page=${page}&limit=${limit}`, {}, false), [fetchData]);
+    
+  const sendMessage = useCallback((conversationId, content) => 
+    fetchData(`/messages/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content })
+    }, false), [fetchData]);
+    
+  const createConversation = useCallback((userId) => 
+    fetchData('/messages/conversations', {
+      method: 'POST',
+      body: JSON.stringify({ userId })
+    }, false), [fetchData]);
+    
+  const markConversationAsRead = useCallback((conversationId) => 
+    fetchData(`/messages/conversations/${conversationId}/read`, {
+      method: 'POST'
+    }, false), [fetchData]);
+  
+  const value = {
+    loading,
+    error,
+    clearCache, // Expose cache clearing function
+    // Player methods
+    getPlayers,
+    getPlayersByRegion,
+    getPlayersByPosition,
+    getPlayerById,
+    updatePlayerStats,
+    
+    // Team methods
+    getTeams,
+    getMyTeams,
+    getTeamById,
+    createTeam,
+    addPlayerToTeam,
+    removePlayerFromTeam,
+    
+    // New league methods
+    getLeagues,
+    getUserLeagues,
+    getLeagueById,
+    createLeague,
+    joinLeague,
+    scheduleDraft,
+    
+    // Original league methods
+    getLeague,
+    getStandings,
+    getMatchups,
+    calculateWeekScores,
+    evaluateMatchupWins,
+    setSchedule: generateSchedule,
+    updateAllStats,
+    
+    // Draft methods
+    getDraftStatus,
+    draftPlayer,
+    
+    // User-specific methods
+    getUserTeams,
+    updateUserProfile,
+    getUserRights,
+    transferTeamOwnership,
+    
+    // Friends methods
+    getFriends,
+    getFriendRequests,
+    sendFriendRequest,
+    acceptFriendRequest,
+    rejectFriendRequest,
+    removeFriend,
+    searchUsers,
+    
+    // Messaging methods
+    getConversations,
+    getConversation,
+    getMessages,
+    sendMessage,
+    createConversation,
+    markConversationAsRead
+  };
+  
+  return (
+    <ApiContext.Provider value={value}>
+      {children}
+    </ApiContext.Provider>
+  );
+};
+
+export const useApi = () => {
+  const context = useContext(ApiContext);
+  if (context === undefined) {
+    throw new Error('useApi must be used within an ApiProvider');
+  }
+  return context;
+};
