@@ -7,6 +7,7 @@ const Trade = require('./Trade');
 const FriendRequest = require('./FriendRequest');
 const Conversation = require('./Conversation');
 const Message = require('./Message');
+const TrashTalk = require('./TrashTalk');
 
 module.exports = {
   Player,
@@ -16,5 +17,6 @@ module.exports = {
   Trade,
   FriendRequest,
   Conversation,
-  Message
+  Message,
+  TrashTalk
 };
