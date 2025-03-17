@@ -3,14 +3,17 @@ import { useParams } from 'react-router-dom';
 import { 
   Box, Heading, Text, Stat, StatLabel, StatNumber, StatHelpText,
   SimpleGrid, Badge, Button, Flex, Divider, Progress,
-  Spinner, useToast, Center
+  Spinner, useToast, Center, Avatar, InputGroup, Input, 
+  InputRightElement, VStack, HStack
 } from '@chakra-ui/react';
 import { useApi } from '../context/ApiContext';
 
 const PlayerDetail = () => {
   const { id } = useParams();
-  const { getPlayerById, updatePlayerStats, loading, error } = useApi();
+  const { getPlayerById, updatePlayerStats, updatePlayerImage, loading, error } = useApi();
   const [player, setPlayer] = useState(null);
+  const [imageUrl, setImageUrl] = useState('');
+  const [isUpdatingImage, setIsUpdatingImage] = useState(false);
   const toast = useToast();
   
   useEffect(() => {
@@ -52,6 +55,48 @@ const PlayerDetail = () => {
     }
   };
   
+  const handleUpdateImage = async () => {
+    if (!imageUrl) {
+      toast({
+        title: 'Error',
+        description: 'Please enter an image URL',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    setIsUpdatingImage(true);
+    
+    try {
+      await updatePlayerImage(id, imageUrl);
+      
+      // Refresh player data
+      const updatedPlayer = await getPlayerById(id);
+      setPlayer(updatedPlayer);
+      setImageUrl('');
+      
+      toast({
+        title: 'Image Updated',
+        description: 'Player image has been successfully updated',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update image',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsUpdatingImage(false);
+    }
+  };
+  
   if (loading && !player) {
     return (
       <Center h="200px">
@@ -86,33 +131,67 @@ const PlayerDetail = () => {
   return (
     <Box>
       <Flex justify="space-between" align="center" mb={6}>
-        <Box>
-          <Heading color="white">{player.name}</Heading>
-          <Flex gap={2} mt={2}>
-            <Badge colorScheme={
-              player.position === 'TOP' ? 'red' :
-              player.position === 'JUNGLE' ? 'green' :
-              player.position === 'MID' ? 'purple' :
-              player.position === 'ADC' ? 'orange' :
-              'blue'
-            } fontSize="md" px={2} py={1}>
-              {player.position}
-            </Badge>
-            <Badge colorScheme={player.region === 'NORTH' ? 'cyan' : 'yellow'} fontSize="md" px={2} py={1}>
-              {player.region}
-            </Badge>
-            <Text fontWeight="medium" color="gray.300">{player.team}</Text>
-          </Flex>
-        </Box>
+        <HStack spacing={4}>
+          <Avatar 
+            size="xl" 
+            name={player.name} 
+            src={player.imageUrl} 
+            bg="gray.700"
+          />
+          <Box>
+            <Heading color="white">{player.name}</Heading>
+            <Flex gap={2} mt={2}>
+              <Badge colorScheme={
+                player.position === 'TOP' ? 'red' :
+                player.position === 'JUNGLE' ? 'green' :
+                player.position === 'MID' ? 'purple' :
+                player.position === 'ADC' ? 'orange' :
+                'blue'
+              } fontSize="md" px={2} py={1}>
+                {player.position}
+              </Badge>
+              <Badge colorScheme={player.region === 'NORTH' ? 'cyan' : 'yellow'} fontSize="md" px={2} py={1}>
+                {player.region}
+              </Badge>
+              <Text fontWeight="medium" color="gray.300">{player.team}</Text>
+            </Flex>
+          </Box>
+        </HStack>
         
         <Button 
-          colorScheme="teal" 
+          colorScheme="yellow" 
           onClick={handleUpdateStats}
           isLoading={loading}
         >
           Update Stats
         </Button>
       </Flex>
+      
+      <Box bg="gray.800" p={4} rounded="md" mb={6} borderWidth={1} borderColor="gray.700">
+        <Heading size="sm" mb={3} color="white">Update Player Image</Heading>
+        <InputGroup size="md">
+          <Input
+            placeholder="Enter image URL..."
+            value={imageUrl}
+            onChange={(e) => setImageUrl(e.target.value)}
+            bg="gray.700"
+            borderColor="gray.600"
+            pr="4.5rem"
+            color="white"
+          />
+          <InputRightElement width="4.5rem">
+            <Button 
+              h="1.75rem" 
+              size="sm" 
+              colorScheme="yellow"
+              onClick={handleUpdateImage}
+              isLoading={isUpdatingImage}
+            >
+              Update
+            </Button>
+          </InputRightElement>
+        </InputGroup>
+      </Box>
       
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
         <Stat bg="gray.800" p={4} rounded="md" shadow="lg" borderWidth={1} borderColor="gray.700">

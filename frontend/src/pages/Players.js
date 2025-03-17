@@ -3,7 +3,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { 
   Box, Heading, Table, Thead, Tbody, Tr, Th, Td, 
   Link, Input, Select, Flex, Button, Badge, 
-  Spinner, Text, Center
+  Spinner, Text, Center, Avatar, HStack
 } from '@chakra-ui/react';
 import { useApi } from '../context/ApiContext';
 
@@ -165,9 +165,18 @@ const Players = () => {
               return (
                 <Tr key={player.id} _hover={{ bg: "gray.700" }}>
                   <Td>
-                    <Link as={RouterLink} to={`/players/${player.id}`} color="teal.300" fontWeight="semibold" _hover={{ color: "teal.200" }}>
-                      {player.name}
-                    </Link>
+                    <HStack spacing={2}>
+                      <Avatar 
+                        size="sm" 
+                        name={player.name} 
+                        src={player.imageUrl} 
+                        bg="gray.600"
+                        color="white"
+                      />
+                      <Link as={RouterLink} to={`/players/${player.id}`} color="yellow.400" fontWeight="semibold" _hover={{ color: "yellow.300" }}>
+                        {player.name}
+                      </Link>
+                    </HStack>
                   </Td>
                   <Td>
                     <Badge colorScheme={

@@ -164,6 +164,12 @@ export const ApiProvider = ({ children }) => {
   const updatePlayerStats = useCallback((id) => 
     fetchData(`/players/${id}/update`, { method: 'POST' }, false), [fetchData]);
   
+  const updatePlayerImage = useCallback((id, imageUrl) => 
+    fetchData(`/players/${id}/update-image`, { 
+      method: 'POST',
+      body: JSON.stringify({ imageUrl })
+    }, false), [fetchData]);
+  
   // API methods for teams
   const getTeams = useCallback(() => fetchData('/teams', {}, true), [fetchData]);
   
@@ -362,6 +368,7 @@ export const ApiProvider = ({ children }) => {
     getPlayersByPosition,
     getPlayerById,
     updatePlayerStats,
+    updatePlayerImage,
     
     // Team methods
     getTeams,

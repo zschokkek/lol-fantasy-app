@@ -755,6 +755,39 @@ app.post('/api/players/:id/update', async (req, res) => {
   }
 });
 
+// API endpoint to update player image
+app.post('/api/players/:id/update-image', auth, async (req, res) => {
+  const { id } = req.params;
+  const { imageUrl } = req.body;
+  
+  if (!imageUrl) {
+    return res.status(400).json({ message: 'Image URL is required' });
+  }
+  
+  try {
+    const player = playerService.getPlayerById(id);
+    if (!player) {
+      return res.status(404).json({ message: 'Player not found' });
+    }
+    
+    // Update player image in memory
+    player.imageUrl = imageUrl;
+    
+    // Save updated player data to MongoDB
+    const playerDoc = await Player.findOne({ id });
+    if (playerDoc) {
+      playerDoc.imageUrl = imageUrl;
+      await playerDoc.save();
+      res.json({ message: 'Player image updated successfully', player: { id, imageUrl } });
+    } else {
+      return res.status(404).json({ message: 'Player not found in database' });
+    }
+  } catch (error) {
+    console.error('Error updating player image:', error);
+    res.status(500).json({ message: 'Error updating player image' });
+  }
+});
+
 // Get all teams
 app.get('/api/teams', (req, res) => {
   const teams = teamService.getAllTeams();
@@ -1570,21 +1603,19 @@ app.post('/api/teams/:teamId/add-player', auth, (req, res) => {
     .then(existingTeam => {
       if (existingTeam) {
         console.log(`DEBUG: Updating existing team ${teamId}`);
-        existingTeam.name = team.name;
-        existingTeam.owner = team.owner;
         existingTeam.players = team.players;
-        existingTeam.leagueId = team.leagueId;
-        return existingTeam.save();
+        
+        await existingTeam.save();
       } else {
         console.log(`DEBUG: Creating new team ${teamId}`);
         const newTeam = new FantasyTeam({
           id: teamId,
           name: team.name,
           owner: team.owner,
-          players: team.players,
-          leagueId: team.leagueId
+          players: team.players
         });
-        return newTeam.save();
+        
+        await newTeam.save();
       }
     })
     .then(() => {
@@ -1622,18 +1653,18 @@ app.post('/api/teams/:teamId/remove-player', auth, (req, res) => {
       if (existingTeam) {
         console.log(`DEBUG: Updating existing team ${teamId}`);
         existingTeam.players = team.players;
-        existingTeam.leagueId = team.leagueId;
-        return existingTeam.save();
+        
+        await existingTeam.save();
       } else {
         console.log(`DEBUG: Creating new team ${teamId}`);
         const newTeam = new FantasyTeam({
           id: teamId,
           name: team.name,
           owner: team.owner,
-          players: team.players,
-          leagueId: team.leagueId
+          players: team.players
         });
-        return newTeam.save();
+        
+        await newTeam.save();
       }
     })
     .then(() => {
@@ -1743,8 +1774,8 @@ app.post('/api/leagues/:id/draft', auth, (req, res) => {
     .then(() => {
       res.json({
         message: 'Player successfully drafted',
-        team,
-        player
+        team: team,
+        player: player
       });
     })
     .catch(error => {
