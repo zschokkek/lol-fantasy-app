@@ -86,7 +86,6 @@ const Navbar = () => {
     { label: 'Standings', path: '/standings', requiresLeague: true },
     { label: 'Draft', path: '/draft', requiresLeague: true },
     { label: 'Friends', path: '/friends', alwaysShow: true },
-    { label: 'Messages', path: '/messages', alwaysShow: true },
   ] : [
     { label: 'Players', path: '/players', requiresLeague: true }
   ];
@@ -192,14 +191,6 @@ const Navbar = () => {
                   to="/friends"
                 >
                   Friends
-                </MenuItem>
-                <MenuItem 
-                  _hover={{ bg: 'gray.600' }} 
-                  color="gray.200"
-                  as={RouterLink}
-                  to="/messages"
-                >
-                  Messages
                 </MenuItem>
                 <MenuItem 
                   _hover={{ bg: 'gray.600' }} 

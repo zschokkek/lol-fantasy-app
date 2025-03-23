@@ -1,6 +1,6 @@
 // frontend/src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ChakraProvider, Box } from '@chakra-ui/react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -18,7 +18,6 @@ import Standings from './pages/Standings';
 import Draft from './pages/Draft';
 import Trade from './pages/Trade';
 import Friends from './pages/Friends';
-import Messages from './pages/Messages';
 import Conversation from './pages/Conversation';
 import ProtectedRoute from './components/ProtectedRoute';
 import LeagueRequiredRoute from './components/LeagueRequiredRoute';
@@ -120,9 +119,7 @@ function App() {
                       </ProtectedRoute>
                     } />
                     <Route path="/messages" element={
-                      <ProtectedRoute>
-                        <Messages />
-                      </ProtectedRoute>
+                      <Navigate to="/friends?tab=messages" replace />
                     } />
                     <Route path="/messages/:id" element={
                       <ProtectedRoute>
