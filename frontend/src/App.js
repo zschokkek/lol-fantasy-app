@@ -53,6 +53,12 @@ function App() {
                         </LeagueRequiredRoute>
                       </ProtectedRoute>
                     } />
+                    {/* This league-specific route bypasses the LeagueRequiredRoute check since the league ID is in the URL */}
+                    <Route path="/:leagueId/players" element={
+                      <ProtectedRoute>
+                        <Players />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/players/:id" element={
                       <ProtectedRoute>
                         <LeagueRequiredRoute>

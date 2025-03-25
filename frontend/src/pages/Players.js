@@ -1,20 +1,77 @@
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useLocation, Navigate, useParams } from 'react-router-dom';
 import { 
   Box, Heading, Table, Thead, Tbody, Tr, Th, Td, 
   Link, Input, Select, Flex, Button, Badge, 
-  Spinner, Text, Center, Avatar, HStack
+  Spinner, Text, Center, Avatar, HStack, Alert, AlertIcon
 } from '@chakra-ui/react';
 import { useApi } from '../context/ApiContext';
+import { useLeague } from '../context/LeagueContext';
 
 const Players = () => {
-  const { getPlayers, loading, error } = useApi();
+  const { getPlayers, getLeagueById, loading, error } = useApi();
+  const { selectedLeague, setSelectedLeague } = useLeague();
+  const location = useLocation();
+  const { leagueId } = useParams(); // Get leagueId from URL if available
   const [players, setPlayers] = useState([]);
   const [filteredPlayers, setFilteredPlayers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [leagueFilter, setLeagueFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
+  const [showLeagueAlert, setShowLeagueAlert] = useState(false);
+  const [loadingLeague, setLoadingLeague] = useState(false);
+  const [leagueLoadError, setLeagueLoadError] = useState(false);
   
+  // First priority: Handle league ID from URL if present
+  useEffect(() => {
+    if (leagueId) {
+      // Log the extracted leagueId for debugging
+      console.log('Players.js: Extracted leagueId from URL:', leagueId);
+      
+      setLoadingLeague(true);
+      getLeagueById(leagueId)
+        .then(league => {
+          // Log the response from getLeagueById
+          console.log('Players.js: Response from getLeagueById:', league);
+          
+          if (league) {
+            setSelectedLeague(league);
+            // If the league has regions, set the filter to the first region
+            if (league.regions && league.regions.length > 0) {
+              setLeagueFilter(league.regions[0]);
+            }
+            setShowLeagueAlert(false);
+            setLeagueLoadError(false);
+          } else {
+            console.error('League not found with ID:', leagueId);
+            setLeagueLoadError(true);
+          }
+        })
+        .catch(err => {
+          console.error('Error loading league from URL parameter:', err);
+          setLeagueLoadError(true);
+        })
+        .finally(() => {
+          setLoadingLeague(false);
+        });
+    } else if (!selectedLeague && location.state?.requireLeague) {
+      // Only show alert if we don't have a league ID in URL and no selected league
+      setShowLeagueAlert(true);
+    }
+  }, [leagueId, selectedLeague, getLeagueById, setSelectedLeague, location.state]);
+  
+  // If coming from LeagueDetail with a selectedLeague, set filters
+  useEffect(() => {
+    if (selectedLeague && location.state?.fromLeagueDetail) {
+      // If we're coming from LeagueDetail, pre-filter by the league's regions
+      if (selectedLeague.regions && selectedLeague.regions.length > 0) {
+        // Set initial league filter based on the first region of the selected league
+        setLeagueFilter(selectedLeague.regions[0]);
+      }
+    }
+  }, [selectedLeague, location.state]);
+  
+  // Load players when component mounts
   useEffect(() => {
     const fetchPlayers = async () => {
       try {
@@ -29,6 +86,7 @@ const Players = () => {
     fetchPlayers();
   }, [getPlayers]);
   
+  // Filter players based on search criteria
   useEffect(() => {
     let result = players;
     
@@ -58,7 +116,14 @@ const Players = () => {
     setPositionFilter('');
   };
   
-  if (loading && players.length === 0) {
+  // For league selection error or missing league, show a navigate option
+  // IMPORTANT: Only redirect if we don't have a leagueId in the URL AND we're missing a selected league
+  if (showLeagueAlert && !selectedLeague && !leagueId && !loadingLeague) {
+    return <Navigate to="/leagues" state={{ returnTo: location.pathname }} replace />;
+  }
+  
+  // Show loading spinner while fetching data
+  if ((loading && players.length === 0) || loadingLeague) {
     return (
       <Center h="200px">
         <Spinner 
@@ -72,6 +137,25 @@ const Players = () => {
     );
   }
   
+  // Handle league load error
+  if (leagueLoadError) {
+    return (
+      <Box p={6} bg="gray.800" rounded="md" borderWidth={1} borderColor="red.500">
+        <Heading size="md" color="red.400" mb={2}>League Not Found</Heading>
+        <Text color="gray.300">The specified league could not be found.</Text>
+        <Button 
+          as={RouterLink} 
+          to="/leagues" 
+          colorScheme="teal" 
+          mt={4}
+        >
+          Go to Leagues
+        </Button>
+      </Box>
+    );
+  }
+  
+  // Handle API error
   if (error) {
     return (
       <Box p={6} bg="gray.800" rounded="md" borderWidth={1} borderColor="red.500">
@@ -84,6 +168,13 @@ const Players = () => {
   return (
     <Box>
       <Heading mb={6} color="white">Players</Heading>
+      
+      {selectedLeague && (
+        <Alert status="info" mb={4} bg="blue.800" color="white" borderRadius="md">
+          <AlertIcon color="blue.200" />
+          Viewing players for league: {selectedLeague.name}
+        </Alert>
+      )}
       
       <Box bg="gray.800" p={4} rounded="md" shadow="lg" mb={6} borderWidth={1} borderColor="gray.700">
         <Flex direction={{ base: 'column', md: 'row' }} gap={4} mb={4}>

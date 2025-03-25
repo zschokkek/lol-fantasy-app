@@ -1,9 +1,10 @@
 // models/League.js
 const mongoose = require('mongoose');
+const { v4: uuidv4 } = require('uuid');
 
 const matchupSchema = new mongoose.Schema({
-  teamA: { type: String, ref: 'FantasyTeam' },
-  teamB: { type: String, ref: 'FantasyTeam' },
+  teamA: { type: String, ref: 'FantasyTeam', required: true },
+  teamB: { type: String, ref: 'FantasyTeam', required: true },
   scoreA: { type: Number, default: 0 },
   scoreB: { type: Number, default: 0 },
   winner: { type: String, default: null }
@@ -15,7 +16,7 @@ const weekScheduleSchema = new mongoose.Schema({
 }, { _id: false });
 
 const standingSchema = new mongoose.Schema({
-  teamId: { type: String, ref: 'FantasyTeam' },
+  teamId: { type: String, ref: 'FantasyTeam', required: true },
   wins: { type: Number, default: 0 },
   losses: { type: Number, default: 0 },
   points: { type: Number, default: 0 }
@@ -25,7 +26,8 @@ const leagueSchema = new mongoose.Schema({
   id: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    default: () => uuidv4()
   },
   name: {
     type: String,
@@ -49,6 +51,10 @@ const leagueSchema = new mongoose.Schema({
     type: String,
     ref: 'Player'
   }],
+  players: [{
+    type: String,
+    ref: 'Player'
+  }],
   memberIds: [{
     type: String,
     ref: 'User'
@@ -56,7 +62,7 @@ const leagueSchema = new mongoose.Schema({
   creatorId: {
     type: String,
     ref: 'User',
-    default: null
+    required: true
   },
   description: {
     type: String,
@@ -346,6 +352,34 @@ leagueSchema.methods.isMember = function(userId) {
   if (!userId) return false;
   
   return this.memberIds.includes(userId);
+};
+
+leagueSchema.methods.initializePlayersFromRegions = function(players) {
+  if (!players || !Array.isArray(players)) {
+    console.error('Invalid players array provided for initialization');
+    return false;
+  }
+  
+  // Filter players by the league's regions
+  const regionPlayers = players.filter(player => {
+    // Check if player's region matches any of the league's regions
+    // or if player's homeLeague matches any of the league's regions
+    return this.regions.some(region => 
+      player.region?.toUpperCase() === region?.toUpperCase() || 
+      player.homeLeague?.toUpperCase() === region?.toUpperCase()
+    );
+  });
+  
+  console.log(`Found ${regionPlayers.length} players for regions: ${this.regions.join(', ')}`);
+  
+  // Store player IDs in the league's players array
+  this.players = regionPlayers.map(player => player.id);
+  
+  return true;
+};
+
+leagueSchema.methods.findPlayerById = function(playerId) {
+  return this.players.includes(playerId);
 };
 
 const League = mongoose.model('League', leagueSchema);

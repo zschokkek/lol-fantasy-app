@@ -79,7 +79,7 @@ const Navbar = () => {
   };
   
   const navItems = isAuthenticated ? [
-    { label: 'Players', path: '/players', requiresLeague: true },
+    { label: 'Players', path: selectedLeague ? `/${selectedLeague.id}/players` : '/players', requiresLeague: true },
     { label: 'My Leagues', path: '/leagues', alwaysShow: true },
     { label: 'My Teams', path: '/teams', alwaysShow: true },
     { label: 'Matchups', path: '/matchups', requiresLeague: true },

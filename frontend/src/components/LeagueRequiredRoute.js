@@ -1,6 +1,6 @@
 // frontend/src/components/LeagueRequiredRoute.js
 import React from 'react';
-import { Navigate, useLocation, Link as RouterLink } from 'react-router-dom';
+import { Navigate, useLocation, Link as RouterLink, useParams } from 'react-router-dom';
 import { useLeague } from '../context/LeagueContext';
 import { useAuth } from '../context/AuthContext';
 import { Box, Heading, Text, Button, VStack, Center } from '@chakra-ui/react';
@@ -9,6 +9,10 @@ const LeagueRequiredRoute = ({ children }) => {
   const { selectedLeague, loading } = useLeague();
   const { isAuthenticated } = useAuth();
   const location = useLocation();
+  const params = useParams();
+  
+  // Check if we have a leagueId in the URL params
+  const hasLeagueInUrl = params && params.leagueId;
 
   if (loading) {
     return (
@@ -24,7 +28,9 @@ const LeagueRequiredRoute = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!selectedLeague) {
+  // If there's no selected league but we have a leagueId in the URL,
+  // don't redirect - the Players component will handle loading that league
+  if (!selectedLeague && !hasLeagueInUrl) {
     return (
       <Box p={8} maxW="container.md" mx="auto">
         <VStack spacing={6} align="center" textAlign="center">

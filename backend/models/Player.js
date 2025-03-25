@@ -56,9 +56,86 @@ const playerSchema = new mongoose.Schema({
   imageUrl: {
     type: String,
     default: null
+  },
+  localImagePath: {
+    type: String,
+    default: null
+  },
+  role: {
+    type: String,
+    default: null
+  },
+  teamCode: {
+    type: String,
+    default: null
+  },
+  owner: {
+    type: String,
+    ref: 'FantasyTeam',
+    default: null
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Virtual for formatted image URL
+playerSchema.virtual('formattedImageUrl').get(function() {
+  if (!this.imageUrl) {
+    return this.getDefaultImageUrl();
+  }
+  return this.imageUrl;
+});
+
+// Default positions for role mapping
+const positionRoleMap = {
+  'TOP': 'top',
+  'JUNGLE': 'jungle',
+  'MID': 'mid',
+  'ADC': 'adc',
+  'SUPPORT': 'support'
+};
+
+// Method to get default image URL based on position
+playerSchema.methods.getDefaultImageUrl = function() {
+  const role = this.role?.toLowerCase() || positionRoleMap[this.position] || 'unknown';
+  return `https://raw.githubusercontent.com/lolplayerstats/lolplayerimages/main/default_${role}.png`;
+};
+
+// Method to get image URL with fallback to default
+playerSchema.methods.getImageUrl = function() {
+  // If we have a local image path, use that first
+  if (this.localImagePath) {
+    return this.localImagePath;
+  }
+  
+  // Otherwise, use the remote image URL if available
+  if (this.imageUrl) {
+    return this.imageUrl;
+  }
+  
+  // Fall back to default image based on role
+  return this.getDefaultImageUrl();
+};
+
+// Transform for JSON representation
+playerSchema.set('toJSON', {
+  virtuals: true,
+  transform: function(doc, ret) {
+    // Ensure image URL is always present
+    if (!ret.imageUrl) {
+      ret.imageUrl = doc.getDefaultImageUrl();
+    }
+    
+    // Add formatted image data
+    ret.image = {
+      url: ret.imageUrl,
+      hasCustomImage: !!doc.imageUrl
+    };
+    
+    return ret;
+  }
 });
 
 // Methods from your current Player class

@@ -585,56 +585,39 @@ const LeagueDetail = () => {
   const [loadingError, setLoadingError] = useState(null);
   
   useEffect(() => {
-    const fetchLeagueData = async () => {
-      setLoadingLeague(true);
-      setLoadingError(null);
-      
+    const fetchLeague = async () => {
       try {
-        // Try to get league data with a retry mechanism
-        let data;
-        let retryCount = 0;
-        const maxRetries = 2;
+        setLoadingLeague(true);
+        // Log league ID for debugging
+        console.log('Fetching league with ID:', id);
         
-        while (retryCount <= maxRetries) {
+        const leagueData = await getLeagueById(id);
+        // Log returned league data for debugging
+        console.log('League data received:', leagueData);
+        
+        if (leagueData) {
+          setLeague(leagueData);
+          
+          // Set this as the selected league in context
+          selectLeague(leagueData);
+          
+          // Get standings
           try {
-            // Force a refresh on retries
-            const shouldRefresh = retryCount > 0;
-            data = await getLeagueById(id, shouldRefresh);
-            break; // Success, exit the retry loop
+            const standingsData = await getStandings(id);
+            setStandings(standingsData);
           } catch (err) {
-            console.error(`Attempt ${retryCount + 1} failed:`, err);
-            retryCount++;
-            
-            if (retryCount > maxRetries) {
-              throw err; // Max retries reached, propagate the error
-            }
-            
-            // Wait before retrying (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+            console.error('Error fetching standings:', err);
+            // Non-critical error, just log it
           }
-        }
-        
-        setLeague(data);
-        
-        // Set this as the selected league in context
-        selectLeague(data);
-        
-        // Get standings
-        try {
-          const standingsData = await getStandings(id);
-          setStandings(standingsData);
-        } catch (err) {
-          console.error('Error fetching standings:', err);
-          // Non-critical error, just log it
-        }
-        
-        // Get current week matchups
-        try {
-          const matchupsData = await getMatchups(id, currentWeek);
-          setMatchups(matchupsData);
-        } catch (err) {
-          console.error('Error fetching matchups:', err);
-          // Non-critical error, just log it
+          
+          // Get current week matchups
+          try {
+            const matchupsData = await getMatchups(id, currentWeek);
+            setMatchups(matchupsData);
+          } catch (err) {
+            console.error('Error fetching matchups:', err);
+            // Non-critical error, just log it
+          }
         }
       } catch (error) {
         console.error('Error fetching league:', error);
@@ -663,7 +646,7 @@ const LeagueDetail = () => {
     };
     
     if (id) {
-      fetchLeagueData();
+      fetchLeague();
     }
     
     // Cleanup function to clear selected league when leaving the page
@@ -963,6 +946,36 @@ const LeagueDetail = () => {
             leftIcon={<AddIcon />}
           >
             Join
+          </Button>
+        </Flex>
+        
+        {/* Navigation buttons for league-related pages */}
+        <Flex mt={4} gap={3} wrap="wrap">
+          <Button
+            as={RouterLink}
+            to={`/${league.id}/players`}
+            colorScheme="teal"
+            size="sm"
+          >
+            View Players
+          </Button>
+          
+          <Button
+            as={RouterLink}
+            to="/standings"
+            colorScheme="teal"
+            size="sm"
+          >
+            Standings
+          </Button>
+          
+          <Button
+            as={RouterLink}
+            to="/matchups"
+            colorScheme="teal"
+            size="sm"
+          >
+            Matchups
           </Button>
         </Flex>
         

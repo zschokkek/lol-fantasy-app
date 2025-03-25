@@ -4,16 +4,18 @@ import {
   Box, Heading, Text, Stat, StatLabel, StatNumber, StatHelpText,
   SimpleGrid, Badge, Button, Flex, Divider, Progress,
   Spinner, useToast, Center, Avatar, InputGroup, Input, 
-  InputRightElement, VStack, HStack
+  InputRightElement, VStack, HStack, Image
 } from '@chakra-ui/react';
 import { useApi } from '../context/ApiContext';
 
 const PlayerDetail = () => {
   const { id } = useParams();
-  const { getPlayerById, updatePlayerStats, updatePlayerImage, loading, error } = useApi();
+  const { getPlayerById, updatePlayerStats, updatePlayerImage, getPlayerImage, loading, error } = useApi();
   const [player, setPlayer] = useState(null);
+  const [playerImage, setPlayerImage] = useState(null);
   const [imageUrl, setImageUrl] = useState('');
   const [isUpdatingImage, setIsUpdatingImage] = useState(false);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
   const toast = useToast();
   
   useEffect(() => {
@@ -28,6 +30,25 @@ const PlayerDetail = () => {
     
     fetchPlayer();
   }, [getPlayerById, id]);
+  
+  useEffect(() => {
+    const fetchPlayerImage = async () => {
+      if (!id) return;
+      
+      setIsLoadingImage(true);
+      try {
+        const imageData = await getPlayerImage(id);
+        setPlayerImage(imageData);
+      } catch (error) {
+        console.error('Error fetching player image:', error);
+        // If there's an error fetching the image, we'll use the fallback in the component
+      } finally {
+        setIsLoadingImage(false);
+      }
+    };
+    
+    fetchPlayerImage();
+  }, [getPlayerImage, id]);
   
   const handleUpdateStats = async () => {
     try {
@@ -132,12 +153,33 @@ const PlayerDetail = () => {
     <Box>
       <Flex justify="space-between" align="center" mb={6}>
         <HStack spacing={4}>
-          <Avatar 
-            size="xl" 
-            name={player.name} 
-            src={player.imageUrl} 
-            bg="gray.700"
-          />
+          {isLoadingImage ? (
+            <Center w="96px" h="96px" bg="gray.700" borderRadius="full">
+              <Spinner size="md" color="gold.500" />
+            </Center>
+          ) : (
+            <Box position="relative" borderRadius="full" borderWidth="2px" borderColor={playerImage?.hasCustomImage ? "gold.500" : "gray.700"}>
+              <Avatar 
+                size="xl" 
+                name={player.name} 
+                src={playerImage?.imageUrl || player.imageUrl} 
+                bg="gray.700"
+              />
+              {playerImage?.hasCustomImage && (
+                <Badge 
+                  position="absolute" 
+                  bottom="-2px" 
+                  right="-2px" 
+                  colorScheme="yellow" 
+                  borderRadius="full"
+                  fontSize="xs"
+                  px={2}
+                >
+                  Custom
+                </Badge>
+              )}
+            </Box>
+          )}
           <Box>
             <Heading color="white">{player.name}</Heading>
             <Flex gap={2} mt={2}>
@@ -150,7 +192,7 @@ const PlayerDetail = () => {
               } fontSize="md" px={2} py={1}>
                 {player.position}
               </Badge>
-              <Badge colorScheme={player.region === 'NORTH' ? 'cyan' : 'yellow'} fontSize="md" px={2} py={1}>
+              <Badge colorScheme="yellow" fontSize="md" px={2} py={1}>
                 {player.region}
               </Badge>
               <Text fontWeight="medium" color="gray.300">{player.team}</Text>
@@ -191,6 +233,15 @@ const PlayerDetail = () => {
             </Button>
           </InputRightElement>
         </InputGroup>
+        
+        {playerImage && (
+          <Box mt={4}>
+            <Text fontSize="sm" color="gray.400" mb={2}>Current Image Source:</Text>
+            <Text fontSize="sm" color="white" wordBreak="break-all" fontFamily="monospace" p={2} bg="gray.900" borderRadius="md">
+              {playerImage.imageUrl || "No image URL available"}
+            </Text>
+          </Box>
+        )}
       </Box>
       
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
