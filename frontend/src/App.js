@@ -61,9 +61,7 @@ function App() {
                     } />
                     <Route path="/players/:id" element={
                       <ProtectedRoute>
-                        <LeagueRequiredRoute>
-                          <PlayerDetail />
-                        </LeagueRequiredRoute>
+                        <PlayerDetail />
                       </ProtectedRoute>
                     } />
                     <Route path="/leagues" element={

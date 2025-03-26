@@ -196,7 +196,7 @@ const Players = () => {
                 <Tr 
                   key={player.id} 
                   _hover={{ bg: '#2D3748', cursor: 'pointer' }}
-                  onClick={() => navigate(`/players/${player.id}`)}
+                  onClick={() => navigate(`/players/${player.id}?leagueId=${leagueId}`)}
                   borderBottomWidth="1px"
                   borderColor="#2D3748"
                 >

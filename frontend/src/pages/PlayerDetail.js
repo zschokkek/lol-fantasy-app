@@ -1,22 +1,49 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { 
   Box, Heading, Text, Stat, StatLabel, StatNumber, StatHelpText,
   SimpleGrid, Badge, Button, Flex, Divider, Progress,
-  Spinner, useToast, Center, Avatar, InputGroup, Input, 
-  InputRightElement, VStack, HStack, Image
+  Spinner, useToast, Center, Avatar, Image, IconButton
 } from '@chakra-ui/react';
+import { ChevronLeftIcon } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 
 const PlayerDetail = () => {
   const { id } = useParams();
-  const { getPlayerById, updatePlayerStats, updatePlayerImage, getPlayerImage, loading, error } = useApi();
+  const { getPlayerById, getPlayerImage, loading, error } = useApi();
   const [player, setPlayer] = useState(null);
   const [playerImage, setPlayerImage] = useState(null);
-  const [imageUrl, setImageUrl] = useState('');
-  const [isUpdatingImage, setIsUpdatingImage] = useState(false);
   const [isLoadingImage, setIsLoadingImage] = useState(false);
-  const toast = useToast();
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract the referring league ID from the location state or search params
+  const getReferringLeagueId = () => {
+    // First check if it was passed in location state
+    if (location.state && location.state.fromLeagueId) {
+      return location.state.fromLeagueId;
+    }
+    
+    // Then check URL search params
+    const searchParams = new URLSearchParams(location.search);
+    const leagueId = searchParams.get('leagueId');
+    if (leagueId) {
+      return leagueId;
+    }
+    
+    // Default to leagues page if no referring league
+    return null;
+  };
+  
+  const handleBack = () => {
+    const leagueId = getReferringLeagueId();
+    if (leagueId) {
+      navigate(`/${leagueId}/players`);
+    } else {
+      // If no referring league, go to leagues list
+      navigate('/leagues');
+    }
+  };
   
   useEffect(() => {
     const fetchPlayer = async () => {
@@ -49,74 +76,6 @@ const PlayerDetail = () => {
     
     fetchPlayerImage();
   }, [getPlayerImage, id]);
-  
-  const handleUpdateStats = async () => {
-    try {
-      await updatePlayerStats(id);
-      
-      // Refresh player data
-      const updatedPlayer = await getPlayerById(id);
-      setPlayer(updatedPlayer);
-      
-      toast({
-        title: 'Stats Updated',
-        description: 'Player stats have been successfully updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update stats',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    }
-  };
-  
-  const handleUpdateImage = async () => {
-    if (!imageUrl) {
-      toast({
-        title: 'Error',
-        description: 'Please enter an image URL',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-      return;
-    }
-    
-    setIsUpdatingImage(true);
-    
-    try {
-      await updatePlayerImage(id, imageUrl);
-      
-      // Refresh player data
-      const updatedPlayer = await getPlayerById(id);
-      setPlayer(updatedPlayer);
-      setImageUrl('');
-      
-      toast({
-        title: 'Image Updated',
-        description: 'Player image has been successfully updated',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to update image',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsUpdatingImage(false);
-    }
-  };
   
   if (loading && !player) {
     return (
@@ -151,98 +110,78 @@ const PlayerDetail = () => {
   
   return (
     <Box>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to league"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to League</Text>
+      </Flex>
+      
       <Flex justify="space-between" align="center" mb={6}>
-        <HStack spacing={4}>
-          {isLoadingImage ? (
-            <Center w="96px" h="96px" bg="gray.700" borderRadius="full">
-              <Spinner size="md" color="gold.500" />
-            </Center>
-          ) : (
-            <Box position="relative" borderRadius="full" borderWidth="2px" borderColor={playerImage?.hasCustomImage ? "gold.500" : "gray.700"}>
-              <Avatar 
-                size="xl" 
-                name={player.name} 
-                src={playerImage?.imageUrl || player.imageUrl} 
-                bg="gray.700"
-              />
-              {playerImage?.hasCustomImage && (
-                <Badge 
-                  position="absolute" 
-                  bottom="-2px" 
-                  right="-2px" 
-                  colorScheme="yellow" 
-                  borderRadius="full"
-                  fontSize="xs"
-                  px={2}
-                >
-                  Custom
-                </Badge>
-              )}
-            </Box>
-          )}
-          <Box>
-            <Heading color="white">{player.name}</Heading>
-            <Flex gap={2} mt={2}>
-              <Badge colorScheme={
+        <Box maxW="60%">
+          <Heading color="white" size="2xl" fontSize="48px" letterSpacing="-1px">{player.name}</Heading>
+          <Flex gap={2} mt={3} align="center">
+            <Badge 
+              colorScheme={
                 player.position === 'TOP' ? 'red' :
                 player.position === 'JUNGLE' ? 'green' :
                 player.position === 'MID' ? 'purple' :
                 player.position === 'ADC' ? 'orange' :
                 'blue'
-              } fontSize="md" px={2} py={1}>
-                {player.position}
-              </Badge>
-              <Badge colorScheme="yellow" fontSize="md" px={2} py={1}>
-                {player.region}
-              </Badge>
-              <Text fontWeight="medium" color="gray.300">{player.team}</Text>
-            </Flex>
-          </Box>
-        </HStack>
-        
-        <Button 
-          colorScheme="yellow" 
-          onClick={handleUpdateStats}
-          isLoading={loading}
-        >
-          Update Stats
-        </Button>
-      </Flex>
-      
-      <Box bg="gray.800" p={4} rounded="md" mb={6} borderWidth={1} borderColor="gray.700">
-        <Heading size="sm" mb={3} color="white">Update Player Image</Heading>
-        <InputGroup size="md">
-          <Input
-            placeholder="Enter image URL..."
-            value={imageUrl}
-            onChange={(e) => setImageUrl(e.target.value)}
-            bg="gray.700"
-            borderColor="gray.600"
-            pr="4.5rem"
-            color="white"
-          />
-          <InputRightElement width="4.5rem">
-            <Button 
-              h="1.75rem" 
-              size="sm" 
-              colorScheme="yellow"
-              onClick={handleUpdateImage}
-              isLoading={isUpdatingImage}
+              } 
+              fontSize="md" 
+              px={3} 
+              py={1}
             >
-              Update
-            </Button>
-          </InputRightElement>
-        </InputGroup>
+              {player.position}
+            </Badge>
+            <Badge colorScheme="yellow" fontSize="md" px={3} py={1}>
+              {player.region}
+            </Badge>
+            <Text fontWeight="medium" color="gray.300" fontSize="lg">{player.team}</Text>
+          </Flex>
+        </Box>
         
-        {playerImage && (
-          <Box mt={4}>
-            <Text fontSize="sm" color="gray.400" mb={2}>Current Image Source:</Text>
-            <Text fontSize="sm" color="white" wordBreak="break-all" fontFamily="monospace" p={2} bg="gray.900" borderRadius="md">
-              {playerImage.imageUrl || "No image URL available"}
-            </Text>
+        {isLoadingImage ? (
+          <Center w="420px" h="420px" bg="gray.700" borderRadius="xl" mr={16}>
+            <Spinner size="xl" color="yellow.400" />
+          </Center>
+        ) : (
+          <Box 
+            position="relative" 
+            borderRadius="xl" 
+            overflow="hidden"
+            w="420px"
+            h="420px"
+            mr={16}
+          >
+            <Image
+              src={playerImage?.imageUrl || player.imageUrl}
+              alt={player.name}
+              objectFit="cover"
+              w="100%"
+              h="100%"
+              fallback={
+                <Avatar 
+                  size="2xl" 
+                  name={player.name} 
+                  bg="gray.700"
+                  w="100%"
+                  h="100%"
+                  fontSize="9xl"
+                />
+              }
+            />
           </Box>
         )}
-      </Box>
+      </Flex>
       
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
         <Stat bg="gray.800" p={4} rounded="md" shadow="lg" borderWidth={1} borderColor="gray.700">
