@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, Heading, Table, Thead, Tbody, Tr, Th, Td, 
   Input, Select, Flex, Button, Badge, 
-  Spinner, Text, Center, Avatar, HStack, Alert, AlertIcon
+  Spinner, Text, Center, Avatar, HStack, Alert, AlertIcon,
+  IconButton
 } from '@chakra-ui/react';
+import { ChevronLeftIcon } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 
 const Players = () => {
@@ -98,6 +100,11 @@ const Players = () => {
     setRegionFilter('');
     setPositionFilter('');
   };
+  
+  // Handle back button click
+  const handleBack = () => {
+    navigate('/leagues');
+  };
 
   if (loading) {
     return (
@@ -118,6 +125,20 @@ const Players = () => {
 
   return (
     <Box p={5}>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to leagues"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to Leagues</Text>
+      </Flex>
+      
       <Heading mb={4} bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">
         Players
       </Heading>

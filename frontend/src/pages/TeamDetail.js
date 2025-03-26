@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link as RouterLink } from 'react-router-dom';
+import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import { 
   Box, Heading, Text, SimpleGrid, Flex, Button, IconButton,
   Table, Thead, Tbody, Tr, Th, Td, Badge, Link,
   Spinner, useDisclosure, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalCloseButton, useToast, Select, Center
 } from '@chakra-ui/react';
+import { ChevronLeftIcon } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +19,7 @@ const TeamDetail = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedPosition, setSelectedPosition] = useState('');
   const toast = useToast();
+  const navigate = useNavigate();
   
   useEffect(() => {
     fetchTeam();
@@ -109,6 +111,17 @@ const TeamDetail = () => {
     }
   };
   
+  // Handle back button click
+  const handleBack = () => {
+    // Navigate to the league detail page if team has a leagueId
+    if (team && team.leagueId) {
+      navigate(`/leagues/${team.leagueId}`);
+    } else {
+      // Otherwise go to leagues list
+      navigate('/leagues');
+    }
+  };
+  
   if (loading && !team) {
     return (
       <Center h="200px">
@@ -142,6 +155,20 @@ const TeamDetail = () => {
   
   return (
     <Box>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to league"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to League</Text>
+      </Flex>
+      
       <Flex justify="space-between" align="center" mb={6}>
         <Box>
           <Heading color="white">{team.name}</Heading>

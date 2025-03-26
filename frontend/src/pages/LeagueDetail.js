@@ -12,11 +12,12 @@ import {
   NumberIncrementStepper, NumberDecrementStepper, Select,
   Radio, RadioGroup, AlertDialog, AlertDialogBody,
   AlertDialogFooter, AlertDialogHeader, AlertDialogContent,
-  AlertDialogOverlay
+  AlertDialogOverlay, IconButton
 } from '@chakra-ui/react';
 import { 
   AddIcon, StarIcon, CheckIcon, CalendarIcon, 
-  TimeIcon, InfoIcon, WarningIcon, SettingsIcon, RepeatIcon
+  TimeIcon, InfoIcon, WarningIcon, SettingsIcon, RepeatIcon,
+  ChevronLeftIcon
 } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
@@ -579,6 +580,7 @@ const LeagueDetail = () => {
   const { isOpen: isSetScheduleOpen, onOpen: onSetScheduleOpen, onClose: onSetScheduleClose } = useDisclosure();
   const { isOpen: isFillLeagueOpen, onOpen: onFillLeagueOpen, onClose: onFillLeagueClose } = useDisclosure();
   const toast = useToast();
+  const navigate = useNavigate();
   
   // State for handling loading and error states
   const [loadingLeague, setLoadingLeague] = useState(false);
@@ -845,6 +847,10 @@ const LeagueDetail = () => {
     }
   };
 
+  const handleBack = () => {
+    navigate('/leagues');
+  };
+
   if (loading && !league) {
     return (
       <Flex justify="center" align="center" height="70vh" direction="column">
@@ -903,6 +909,20 @@ const LeagueDetail = () => {
   
   return (
     <Box>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to leagues"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to Leagues</Text>
+      </Flex>
+      
       {/* League Header */}
       <Box 
         bg="gray.800" 

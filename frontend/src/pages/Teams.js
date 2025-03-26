@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { 
   Box, Heading, SimpleGrid, Text, Button, Flex, 
-  Link, Badge, Spinner, Icon, Center
+  Link, Badge, Spinner, Icon, Center, IconButton
 } from '@chakra-ui/react';
-import { InfoIcon } from '@chakra-ui/icons';
+import { InfoIcon, ChevronLeftIcon } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -25,12 +25,12 @@ const TeamCard = ({ team }) => {
         borderWidth={1}
         borderColor="gray.700"
         transition="all 0.3s"
-        _hover={{ shadow: '2xl', transform: 'translateY(-4px)', borderColor: 'teal.400' }}
+        _hover={{ shadow: '2xl', transform: 'translateY(-4px)', borderColor: 'yellow.400' }}
         position="relative"
         overflow="hidden"
       >
       {/* Top accent bar */}
-      <Box position="absolute" top={0} left={0} right={0} height="4px" bg="teal.400" />
+      <Box position="absolute" top={0} left={0} right={0} height="4px" bg="yellow.400" />
       
       <Heading size="md" mb={2} fontWeight="bold" color="white">
         {team.name}
@@ -38,7 +38,7 @@ const TeamCard = ({ team }) => {
       
       <Text color="gray.400" fontSize="sm" mb={4}>
         League: {team.leagueName ? (
-          <Link as={RouterLink} to={`/leagues/${team.leagueId}`} color="teal.300" _hover={{ textDecoration: 'underline' }}>
+          <Link as={RouterLink} to={`/leagues/${team.leagueId}`} color="yellow.300" _hover={{ textDecoration: 'underline' }}>
             {team.leagueName}
           </Link>
         ) : 'Not assigned'}
@@ -89,7 +89,7 @@ const TeamCard = ({ team }) => {
         <Text fontSize="sm" color="gray.400">
           Bench Players: {team.players.BENCH?.length || 0}
         </Text>
-        <Text fontWeight="bold" color="teal.300" fontSize="lg">
+        <Text fontWeight="bold" color="yellow.300" fontSize="lg">
           {team.totalPoints.toFixed(1)} pts
         </Text>
       </Flex>
@@ -101,6 +101,7 @@ const TeamCard = ({ team }) => {
 const Teams = () => {
   const { getMyTeams, loading, error } = useApi();
   const [teams, setTeams] = useState([]);
+  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchTeams = async () => {
@@ -115,6 +116,11 @@ const Teams = () => {
     fetchTeams();
   }, [getMyTeams]);
   
+  // Handle back button click
+  const handleBack = () => {
+    navigate('/leagues');
+  };
+  
   if (loading && teams.length === 0) {
     return (
       <Center h="200px">
@@ -122,7 +128,7 @@ const Teams = () => {
           thickness="4px"
           speed="0.65s"
           emptyColor="gray.700"
-          color="teal.400"
+          color="yellow.400"
           size="xl"
         />
       </Center>
@@ -140,6 +146,20 @@ const Teams = () => {
   
   return (
     <Box>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to leagues"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to Leagues</Text>
+      </Flex>
+      
       <Flex justify="space-between" align="center" mb={6}>
         <Heading color="white">My Teams</Heading>
       </Flex>
@@ -166,7 +186,7 @@ const Teams = () => {
           <Button
             as={RouterLink}
             to="/leagues"
-            colorScheme="teal"
+            colorScheme="yellow"
             size="lg"
           >
             Browse Leagues

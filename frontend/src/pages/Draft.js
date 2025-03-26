@@ -4,10 +4,11 @@ import {
   SimpleGrid, Select, Badge, Flex, Spinner, useToast, Alert, 
   AlertIcon, AlertTitle, AlertDescription, Tabs, TabList, Tab,
   TabPanels, TabPanel, Modal, ModalOverlay, ModalContent, ModalHeader,
-  ModalBody, ModalCloseButton, useDisclosure
+  ModalBody, ModalCloseButton, useDisclosure, IconButton
 } from '@chakra-ui/react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useApi } from '../context/ApiContext';
+import { ChevronLeftIcon } from '@chakra-ui/icons';
 
 const Draft = () => {
   // Use getPlayers directly since getDraftStatus might not be implemented yet
@@ -26,6 +27,7 @@ const Draft = () => {
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
+  const navigate = useNavigate();
   
   useEffect(() => {
     fetchLeagueData();
@@ -339,8 +341,22 @@ const Draft = () => {
     }
   };
   
+  // Handle back button click
+  const handleBack = () => {
+    if (league && league.id) {
+      navigate(`/leagues/${league.id}`);
+    } else {
+      navigate('/leagues');
+    }
+  };
+  
   if ((loading || isLoading) && !league && !availablePlayers.length) {
-    return <Spinner size="xl" />;
+    return (
+      <Flex justify="center" align="center" h="50vh" direction="column">
+        <Spinner size="xl" color="yellow.400" thickness="4px" mb={4} />
+        <Text color="gray.400">Loading draft data...</Text>
+      </Flex>
+    );
   }
   
   if (error) {
@@ -354,7 +370,23 @@ const Draft = () => {
   
   return (
     <Box>
-      <Heading mb={6}>Player Draft</Heading>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to league"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to League</Text>
+      </Flex>
+      
+      <Heading mb={6} bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">
+        League Draft
+      </Heading>
       
       {league && league.teams.length < 8 ? (
         <Alert status="warning" mb={6}>
@@ -475,7 +507,7 @@ const Draft = () => {
                           pick.position === 'MID' ? 'purple' :
                           pick.position === 'ADC' ? 'orange' :
                           pick.position === 'SUPPORT' ? 'blue' :
-                          pick.position === 'FLEX' ? 'teal' :
+                          pick.position === 'FLEX' ? 'yellow' :
                           'gray'
                         }>
                           {pick.position}
@@ -524,7 +556,6 @@ const Draft = () => {
               </Button>
             </Flex>
             
-            {/* Add player count info */}
             <Text mb={3}>Available players: {filteredPlayers.length}</Text>
             
             <Table variant="simple">

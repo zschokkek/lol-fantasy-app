@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { 
   Box, Heading, SimpleGrid, Text, Flex, Link, 
   Badge, Select, Button, Spinner, useToast,
   Center, Modal, ModalOverlay, ModalContent, ModalHeader,
   ModalBody, ModalCloseButton, ModalFooter, useDisclosure,
-  Tooltip, Icon, HStack
+  Tooltip, Icon, HStack, IconButton
 } from '@chakra-ui/react';
-import { CheckIcon, TimeIcon } from '@chakra-ui/icons';
+import { CheckIcon, TimeIcon, ChevronLeftIcon } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 import MatchupDetails from '../components/MatchupDetails';
 
@@ -129,6 +129,7 @@ const Matchups = () => {
   const [selectedMatchup, setSelectedMatchup] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
+  const navigate = useNavigate();
   
   useEffect(() => {
     const fetchLeague = async () => {
@@ -209,23 +210,19 @@ const Matchups = () => {
     }
   }, [evaluateMatchupWins, league, selectedWeek, toast]);
   
-  // Auto-evaluate on mount if today is Monday
-  useEffect(() => {
-    if (league && matchups.length > 0) {
-      const today = new Date();
-      const isMonday = today.getDay() === 1; // 0 is Sunday, 1 is Monday
-      
-      // Auto-evaluate wins on Mondays for the previous week
-      if (isMonday) {
-        // Only auto-evaluate if we have matchups and they're not already evaluated
-        const needsEvaluation = matchups.some(m => m.completed && !m.winnerUpdated);
-        
-        if (needsEvaluation) {
-          handleEvaluateWins();
-        }
-      }
+  const handleMatchupClick = (matchup) => {
+    setSelectedMatchup(matchup);
+    onOpen();
+  };
+  
+  // Handle back button click
+  const handleBack = () => {
+    if (league && league.id) {
+      navigate(`/leagues/${league.id}`);
+    } else {
+      navigate('/leagues');
     }
-  }, [league, matchups, handleEvaluateWins]);
+  };
   
   if (loading && !league) {
     return (
@@ -250,12 +247,30 @@ const Matchups = () => {
     );
   }
   
-  const weekOptions = league?.schedule?.length
-    ? Array.from({ length: league.schedule.length }, (_, i) => i + 1)
-    : [];
+  if (!league) {
+    return (
+      <Box p={6} bg="gray.800" rounded="md" borderWidth={1} borderColor="gray.700">
+        <Heading size="md" color="gray.400">League Not Found</Heading>
+      </Box>
+    );
+  }
   
   return (
     <Box>
+      <Flex mb={4} align="center">
+        <IconButton
+          icon={<ChevronLeftIcon boxSize={6} />}
+          aria-label="Back to league"
+          variant="ghost"
+          colorScheme="yellow"
+          size="lg"
+          onClick={handleBack}
+          mr={2}
+          _hover={{ bg: 'yellow.500', color: 'white' }}
+        />
+        <Text color="gray.400" fontSize="md">Back to League</Text>
+      </Flex>
+      
       <Heading mb={6} color="white" bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">Weekly Matchups</Heading>
       
       <Flex 
@@ -273,10 +288,8 @@ const Matchups = () => {
           borderColor="gray.600"
           _hover={{ borderColor: 'yellow.400' }}
         >
-          {weekOptions.map(week => (
-            <option key={week} value={week} style={{ backgroundColor: '#2D3748' }}>
-              Week {week}{week === league?.currentWeek ? ' (Current)' : ''}
-            </option>
+          {Array.from({ length: league.totalWeeks || 14 }, (_, i) => (
+            <option key={i + 1} value={i + 1}>Week {i + 1}</option>
           ))}
         </Select>
         
@@ -298,10 +311,7 @@ const Matchups = () => {
               <MatchupCard 
                 key={matchup.id} 
                 matchup={matchup} 
-                onClick={() => {
-                  setSelectedMatchup(matchup);
-                  onOpen();
-                }}
+                onClick={() => handleMatchupClick(matchup)}
               />
             ))}
           </SimpleGrid>
