@@ -1,105 +1,72 @@
-import React, { useEffect, useState } from 'react';
-import { Link as RouterLink, useLocation, Navigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, Heading, Table, Thead, Tbody, Tr, Th, Td, 
-  Link, Input, Select, Flex, Button, Badge, 
+  Input, Select, Flex, Button, Badge, 
   Spinner, Text, Center, Avatar, HStack, Alert, AlertIcon
 } from '@chakra-ui/react';
 import { useApi } from '../context/ApiContext';
-import { useLeague } from '../context/LeagueContext';
 
 const Players = () => {
-  const { getPlayers, getLeagueById, loading, error } = useApi();
-  const { selectedLeague, setSelectedLeague } = useLeague();
-  const location = useLocation();
-  const { leagueId } = useParams(); // Get leagueId from URL if available
+  const { getPlayers, getLeagueById } = useApi();
+  const { leagueId } = useParams();
+  const navigate = useNavigate();
+  const [league, setLeague] = useState(null);
   const [players, setPlayers] = useState([]);
   const [filteredPlayers, setFilteredPlayers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [leagueFilter, setLeagueFilter] = useState('');
+  const [regionFilter, setRegionFilter] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
-  const [showLeagueAlert, setShowLeagueAlert] = useState(false);
-  const [loadingLeague, setLoadingLeague] = useState(false);
-  const [leagueLoadError, setLeagueLoadError] = useState(false);
-  
-  // First priority: Handle league ID from URL if present
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Load league and players
   useEffect(() => {
-    if (leagueId) {
-      // Log the extracted leagueId for debugging
-      console.log('Players.js: Extracted leagueId from URL:', leagueId);
-      
-      setLoadingLeague(true);
-      getLeagueById(leagueId)
-        .then(league => {
-          // Log the response from getLeagueById
-          console.log('Players.js: Response from getLeagueById:', league);
-          
-          if (league) {
-            setSelectedLeague(league);
-            // If the league has regions, set the filter to the first region
-            if (league.regions && league.regions.length > 0) {
-              setLeagueFilter(league.regions[0]);
-            }
-            setShowLeagueAlert(false);
-            setLeagueLoadError(false);
-          } else {
-            console.error('League not found with ID:', leagueId);
-            setLeagueLoadError(true);
-          }
-        })
-        .catch(err => {
-          console.error('Error loading league from URL parameter:', err);
-          setLeagueLoadError(true);
-        })
-        .finally(() => {
-          setLoadingLeague(false);
-        });
-    } else if (!selectedLeague && location.state?.requireLeague) {
-      // Only show alert if we don't have a league ID in URL and no selected league
-      setShowLeagueAlert(true);
-    }
-  }, [leagueId, selectedLeague, getLeagueById, setSelectedLeague, location.state]);
-  
-  // If coming from LeagueDetail with a selectedLeague, set filters
-  useEffect(() => {
-    if (selectedLeague && location.state?.fromLeagueDetail) {
-      // If we're coming from LeagueDetail, pre-filter by the league's regions
-      if (selectedLeague.regions && selectedLeague.regions.length > 0) {
-        // Set initial league filter based on the first region of the selected league
-        setLeagueFilter(selectedLeague.regions[0]);
-      }
-    }
-  }, [selectedLeague, location.state]);
-  
-  // Load players when component mounts
-  useEffect(() => {
-    const fetchPlayers = async () => {
+    const loadData = async () => {
       try {
-        const data = await getPlayers();
-        setPlayers(data);
-        setFilteredPlayers(data);
-      } catch (error) {
-        console.error('Error fetching players:', error);
+        setLoading(true);
+        
+        // Get league data
+        if (leagueId) {
+          const leagueData = await getLeagueById(leagueId);
+          setLeague(leagueData);
+          
+          // Get players from this league
+          const playersData = await getPlayers(leagueId);
+          setPlayers(playersData);
+          setFilteredPlayers(playersData);
+        }
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to load players. Please try again later.');
+      } finally {
+        setLoading(false);
       }
     };
     
-    fetchPlayers();
-  }, [getPlayers]);
-  
-  // Filter players based on search criteria
+    loadData();
+  }, [leagueId, getLeagueById, getPlayers]);
+
+  // Filter players when search/filters change
   useEffect(() => {
-    let result = players;
+    if (!players.length) return;
+    
+    let result = [...players];
     
     // Apply search filter
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       result = result.filter(player => 
-        player.name.toLowerCase().includes(searchTerm.toLowerCase())
+        player.name.toLowerCase().includes(term) || 
+        player.team?.toLowerCase().includes(term)
       );
     }
     
-    // Apply league filter
-    if (leagueFilter) {
-      result = result.filter(player => player.homeLeague === leagueFilter);
+    // Apply region filter
+    if (regionFilter) {
+      result = result.filter(player => 
+        player.region === regionFilter || player.homeLeague === regionFilter
+      );
     }
     
     // Apply position filter
@@ -108,71 +75,56 @@ const Players = () => {
     }
     
     setFilteredPlayers(result);
-  }, [searchTerm, leagueFilter, positionFilter, players]);
-  
-  const handleClearFilters = () => {
+  }, [players, searchTerm, regionFilter, positionFilter]);
+
+  // Handle search input change
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  // Handle region filter change
+  const handleRegionChange = (e) => {
+    setRegionFilter(e.target.value);
+  };
+
+  // Handle position filter change
+  const handlePositionChange = (e) => {
+    setPositionFilter(e.target.value);
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
     setSearchTerm('');
-    setLeagueFilter('');
+    setRegionFilter('');
     setPositionFilter('');
   };
-  
-  // For league selection error or missing league, show a navigate option
-  // IMPORTANT: Only redirect if we don't have a leagueId in the URL AND we're missing a selected league
-  if (showLeagueAlert && !selectedLeague && !leagueId && !loadingLeague) {
-    return <Navigate to="/leagues" state={{ returnTo: location.pathname }} replace />;
-  }
-  
-  // Show loading spinner while fetching data
-  if ((loading && players.length === 0) || loadingLeague) {
+
+  if (loading) {
     return (
       <Center h="200px">
-        <Spinner 
-          thickness="4px"
-          speed="0.65s"
-          emptyColor="gray.700"
-          color="teal.400"
-          size="xl"
-        />
+        <Spinner size="xl" color="yellow.400" />
       </Center>
     );
   }
-  
-  // Handle league load error
-  if (leagueLoadError) {
-    return (
-      <Box p={6} bg="gray.800" rounded="md" borderWidth={1} borderColor="red.500">
-        <Heading size="md" color="red.400" mb={2}>League Not Found</Heading>
-        <Text color="gray.300">The specified league could not be found.</Text>
-        <Button 
-          as={RouterLink} 
-          to="/leagues" 
-          colorScheme="teal" 
-          mt={4}
-        >
-          Go to Leagues
-        </Button>
-      </Box>
-    );
-  }
-  
-  // Handle API error
+
   if (error) {
     return (
-      <Box p={6} bg="gray.800" rounded="md" borderWidth={1} borderColor="red.500">
-        <Heading size="md" color="red.400" mb={2}>Error Loading Players</Heading>
-        <Text color="gray.300">{error}</Text>
-      </Box>
+      <Alert status="error" mb={4}>
+        <AlertIcon />
+        <Text>{error}</Text>
+      </Alert>
     );
   }
-  
+
   return (
-    <Box>
-      <Heading mb={6} color="white">Players</Heading>
+    <Box p={5}>
+      <Heading mb={4} bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">
+        Players
+      </Heading>
       
-      {selectedLeague && (
+      {league && (
         <Alert status="info" mb={4} bg="blue.800" color="white" borderRadius="md">
-          <AlertIcon color="blue.200" />
-          Viewing players for league: {selectedLeague.name}
+          <Text fontWeight="bold">League: {league.name}</Text>
         </Alert>
       )}
       
@@ -181,134 +133,148 @@ const Players = () => {
           <Input
             placeholder="Search players..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
             bg="gray.700"
             borderColor="gray.600"
-            color="white"
-            _hover={{ borderColor: "teal.300" }}
-            _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+            _hover={{ borderColor: 'yellow.400' }}
           />
           
           <Select 
-            placeholder="All Leagues" 
-            value={leagueFilter}
-            onChange={(e) => setLeagueFilter(e.target.value)}
+            placeholder="Filter by region" 
+            value={regionFilter}
+            onChange={handleRegionChange}
             bg="gray.700"
             borderColor="gray.600"
-            color="white"
-            _hover={{ borderColor: "teal.300" }}
-            _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+            _hover={{ borderColor: 'yellow.400' }}
           >
-            <option value="LTA North">LTA North</option>
-            <option value="LTA South">LTA South</option>
+            <option value="LCS">LCS</option>
             <option value="LEC">LEC</option>
             <option value="LCK">LCK</option>
             <option value="LPL">LPL</option>
           </Select>
           
           <Select 
-            placeholder="All Positions" 
+            placeholder="Filter by position" 
             value={positionFilter}
-            onChange={(e) => setPositionFilter(e.target.value)}
+            onChange={handlePositionChange}
             bg="gray.700"
             borderColor="gray.600"
-            color="white"
-            _hover={{ borderColor: "teal.300" }}
-            _focus={{ borderColor: "teal.300", boxShadow: "0 0 0 1px teal.300" }}
+            _hover={{ borderColor: 'yellow.400' }}
           >
             <option value="TOP">Top</option>
             <option value="JUNGLE">Jungle</option>
             <option value="MID">Mid</option>
             <option value="ADC">ADC</option>
             <option value="SUPPORT">Support</option>
+            <option value="TEAM">Team</option>
           </Select>
           
           <Button 
-            onClick={handleClearFilters} 
-            variant="outline" 
-            borderColor="gray.600" 
-            color="gray.300"
-            _hover={{ bg: "whiteAlpha.100", borderColor: "teal.300" }}
+            onClick={clearFilters} 
+            colorScheme="yellow"
+            _hover={{ bg: 'yellow.500' }}
           >
             Clear Filters
           </Button>
         </Flex>
       </Box>
       
-      <Box bg="gray.800" rounded="md" shadow="lg" overflowX="auto" borderWidth={1} borderColor="gray.700">
-        <Table variant="simple">
-          <Thead bg="gray.900">
-            <Tr>
-              <Th color="gray.400">Name</Th>
-              <Th color="gray.400">Position</Th>
-              <Th color="gray.400">Team</Th>
-              <Th color="gray.400">League</Th>
-              <Th isNumeric color="gray.400">Fantasy Points</Th>
-              <Th isNumeric color="gray.400">KDA</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {filteredPlayers.map(player => {
-              const kda = player.stats && player.stats.deaths > 0 
-                ? ((player.stats.kills + player.stats.assists) / player.stats.deaths).toFixed(2)
-                : 'Perfect';
-              
-              return (
-                <Tr key={player.id} _hover={{ bg: "gray.700" }}>
+      {filteredPlayers.length > 0 ? (
+        <Box overflowX="auto">
+          <Table variant="simple" colorScheme="whiteAlpha" bg="#1A202C" borderRadius="md" overflow="hidden">
+            <Thead bg="#171923">
+              <Tr>
+                <Th color="gray.300" width="30%">PLAYER</Th>
+                <Th color="gray.300" width="15%">POSITION</Th>
+                <Th color="gray.300" width="30%">TEAM</Th>
+                <Th color="gray.300" width="15%">REGION</Th>
+                <Th color="gray.300" isNumeric width="10%">FANTASY POINTS</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {filteredPlayers.map(player => (
+                <Tr 
+                  key={player.id} 
+                  _hover={{ bg: '#2D3748', cursor: 'pointer' }}
+                  onClick={() => navigate(`/players/${player.id}`)}
+                  borderBottomWidth="1px"
+                  borderColor="#2D3748"
+                >
                   <Td>
-                    <HStack spacing={2}>
+                    <HStack spacing={3}>
                       <Avatar 
                         size="sm" 
                         name={player.name} 
                         src={player.imageUrl} 
-                        bg="gray.600"
+                        bg={
+                          player.name?.charAt(0).toLowerCase() === 'k' ? 'green.500' :
+                          player.name?.charAt(0).toLowerCase() === 'c' ? 'blue.500' :
+                          player.name?.charAt(0).toLowerCase() === 't' ? 'yellow.500' :
+                          player.name?.charAt(0).toLowerCase() === 'h' ? 'green.300' :
+                          player.name?.charAt(0).toLowerCase() === 'n' ? 'blue.300' :
+                          player.name?.charAt(0).toLowerCase() === 'd' ? 'blue.700' :
+                          player.name?.charAt(0).toLowerCase() === 's' ? 'teal.500' :
+                          'purple.500'
+                        }
                         color="white"
-                      />
-                      <Link as={RouterLink} to={`/players/${player.id}`} color="yellow.400" fontWeight="semibold" _hover={{ color: "yellow.300" }}>
-                        {player.name}
-                      </Link>
+                        fontWeight="bold"
+                      >
+                        {player.name?.charAt(0)}
+                      </Avatar>
+                      <Text fontWeight="medium" color="white">{player.name}</Text>
                     </HStack>
                   </Td>
                   <Td>
-                    <Badge colorScheme={
-                      player.position === 'TOP' ? 'blue' :
-                      player.position === 'JUNGLE' ? 'green' :
-                      player.position === 'MID' ? 'purple' :
-                      player.position === 'ADC' ? 'orange' :
-                      player.position === 'SUPPORT' ? 'pink' :
-                      'red'
-                    }>
+                    <Badge 
+                      px={2}
+                      py={1}
+                      borderRadius="md"
+                      textTransform="uppercase"
+                      fontWeight="bold"
+                      fontSize="xs"
+                      bg={
+                        player.position === 'TOP' ? '#F56565' :
+                        player.position === 'JUNGLE' ? '#48BB78' :
+                        player.position === 'MID' ? '#4299E1' :
+                        player.position === 'ADC' ? '#9F7AEA' :
+                        player.position === 'SUPPORT' ? '#ECC94B' :
+                        '#718096'
+                      }
+                      color="white"
+                    >
                       {player.position}
                     </Badge>
                   </Td>
                   <Td color="white">{player.team}</Td>
                   <Td>
-                    <Badge colorScheme={
-                      player.homeLeague === 'LCK' ? 'red' : 
-                      player.homeLeague === 'LEC' ? 'blue' : 
-                      player.homeLeague === 'LPL' ? 'yellow' : 
-                      player.homeLeague === 'LTA North' ? 'green' : 
-                      player.homeLeague === 'LTA South' ? 'purple' : 'gray'
-                    }>
-                      {player.homeLeague || player.region}
+                    <Badge 
+                      px={2}
+                      py={1}
+                      borderRadius="md"
+                      textTransform="uppercase"
+                      fontWeight="bold"
+                      fontSize="xs"
+                      bg="#4A5568"
+                      color="white"
+                    >
+                      {player.region || player.homeLeague}
                     </Badge>
                   </Td>
-                  <Td isNumeric fontWeight="bold" color="teal.300">{player.fantasyPoints.toFixed(1)}</Td>
-                  <Td isNumeric color="white">{kda}</Td>
+                  <Td isNumeric color="white">{player.fantasyPoints?.total || 0}</Td>
                 </Tr>
-              );
-            })}
-            
-            {filteredPlayers.length === 0 && (
-              <Tr>
-                <Td colSpan={6} textAlign="center" py={4}>
-                  <Text color="gray.400">No players found matching the filters</Text>
-                </Td>
-              </Tr>
-            )}
-          </Tbody>
-        </Table>
-      </Box>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      ) : (
+        <Center h="200px" bg="gray.800" borderRadius="md" p={6}>
+          <Text color="gray.400">
+            {players.length > 0 
+              ? 'No players match your filters. Try adjusting your search criteria.'
+              : 'No players found for this league.'}
+          </Text>
+        </Center>
+      )}
     </Box>
   );
 };
