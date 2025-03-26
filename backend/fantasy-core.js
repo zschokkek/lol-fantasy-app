@@ -219,36 +219,27 @@ class Player {
      * @param {FantasyTeam} team - Team to add
      */
     addTeam(team) {
-      // Ensure teams array is properly initialized
+      // Initialize teams array if it doesn't exist
       if (!Array.isArray(this.teams)) {
-        console.log(`DEBUG: League ${this.id} teams array is not properly initialized, fixing it`);
         this.teams = [];
       }
       
       // Check if team is already in the league
       if (this.teams.includes(team.id)) {
-        console.log(`DEBUG: Team ${team.id} is already in league ${this.id}`);
+        console.log(`Team ${team.id} is already in league ${this.id}`);
         return false;
       }
       
       // Check if league is full
-      console.log(`DEBUG: League ${this.id} has ${this.teams.length}/${this.maxTeams} teams before adding team ${team.id}`);
-      
-      if (this.teams.length < this.maxTeams) {
-        // Only add the team ID to the teams array, not the entire team object
-        this.teams.push(team.id);
-        
-        // Update team's leagueId
-        team.leagueId = this.id;
-        
-        console.log(`DEBUG: Added team ${team.id} to league ${this.id}, now has ${this.teams.length}/${this.maxTeams} teams`);
-        
-        this.updateStandings();
-        return true;
+      if (this.teams.length >= this.maxTeams) {
+        console.log(`Cannot add team ${team.id} to league ${this.id} because it is full (${this.teams.length}/${this.maxTeams})`);
+        return false;
       }
       
-      console.log(`DEBUG: Cannot add team ${team.id} to league ${this.id} because it is full (${this.teams.length}/${this.maxTeams})`);
-      return false;
+      // Add the team ID to the teams array
+      this.teams.push(team.id);
+      console.log(`Added team ${team.id} to league ${this.id}, now has ${this.teams.length}/${this.maxTeams} teams`);
+      return true;
     }
   
     /**
@@ -308,6 +299,59 @@ class Player {
     isMember(userId) {
       if (!userId) return false;
       return this.memberIds.includes(userId);
+    }
+  
+    /**
+     * Initialize players from the selected regions
+     * @param {Array} players - Array of all available players
+     * @returns {Boolean} - Whether players were successfully initialized
+     */
+    initializePlayersFromRegions(players) {
+      if (!players || !Array.isArray(players)) {
+        console.error('Invalid players array provided for initialization');
+        return false;
+      }
+      
+      // Define region mappings for the new region names
+      const regionMappings = {
+        'AMERICAS': ['LCS', 'LLA', 'CBLOL', 'NA'],
+        'EMEA': ['LEC', 'LFL', 'LVP', 'EU'],
+        'CHINA': ['LPL'],
+        'KOREA': ['LCK']
+      };
+      
+      // Filter players by the league's regions
+      const regionPlayers = players.filter(player => {
+        // Check if player's region matches any of the league's regions
+        // or if player's homeLeague matches any of the league's regions
+        return this.regions.some(region => {
+          const regionUpper = region.toUpperCase();
+          const playerRegion = player.region?.toUpperCase() || '';
+          const playerHomeLeague = player.homeLeague?.toUpperCase() || '';
+          
+          // Direct match
+          if (playerRegion === regionUpper || playerHomeLeague === regionUpper) {
+            return true;
+          }
+          
+          // Check if the region is one of the new region groups
+          if (regionMappings[regionUpper]) {
+            // Check if player's region or homeLeague is in the mapped regions
+            return regionMappings[regionUpper].some(r => 
+              playerRegion === r || playerHomeLeague === r
+            );
+          }
+          
+          return false;
+        });
+      });
+      
+      console.log(`Found ${regionPlayers.length} players for regions: ${this.regions.join(', ')}`);
+      
+      // Store player IDs in the league's players array
+      this.players = regionPlayers.map(player => player.id);
+      
+      return true;
     }
   
     /**

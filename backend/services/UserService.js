@@ -164,33 +164,41 @@ class UserService {
   }
   
   async updateUserTeams(userId, teamId, action) {
-    const user = await this.getUserById(userId);
-    
-    if (!user) {
-      throw new Error('User not found');
-    }
-    
-    if (action === 'add') {
-      // Add team if not already in the list
-      if (!user.teams.includes(teamId)) {
-        user.teams.push(teamId);
+    try {
+      // Find user in MongoDB instead of using in-memory array
+      const user = await User.findOne({ id: userId });
+      
+      if (!user) {
+        console.log(`DEBUG: User ${userId} not found in MongoDB`);
+        // Create the user if not found
+        console.log(`DEBUG: Creating user ${userId} in MongoDB`);
+        const newUser = new User({
+          id: userId,
+          teams: action === 'add' ? [teamId] : []
+        });
+        await newUser.save();
+        return true;
       }
-    } else if (action === 'remove') {
-      // Remove team if in the list
-      user.teams = user.teams.filter(id => id !== teamId);
+      
+      if (action === 'add') {
+        // Add team if not already in the list
+        if (!user.teams.includes(teamId)) {
+          user.teams.push(teamId);
+          console.log(`DEBUG: Added team ${teamId} to user ${userId}`);
+        }
+      } else if (action === 'remove') {
+        // Remove team if in the list
+        user.teams = user.teams.filter(id => id !== teamId);
+        console.log(`DEBUG: Removed team ${teamId} from user ${userId}`);
+      }
+      
+      await user.save();
+      console.log(`DEBUG: Saved user ${userId} with teams [${user.teams}]`);
+      return true;
+    } catch (error) {
+      console.error('Error updating user teams:', error);
+      return false;
     }
-    
-    // Save to MongoDB
-    await user.save();
-    
-    // Update in-memory cache
-    const userIndex = this.users.findIndex(u => u.id === userId);
-    if (userIndex !== -1) {
-      this.users[userIndex].teams = user.teams;
-    }
-    
-    await this.saveUsers();
-    return user;
   }
   
   async setUserAsAdmin(username) {
