@@ -187,6 +187,12 @@ class Player {
    * League class representing the fantasy league
    */
   class League {
+    /**
+     * Create a new fantasy league
+     * @param {String} name - League name
+     * @param {Number} maxTeams - Maximum number of teams allowed
+     * @param {Object} options - Additional options for the league
+     */
     constructor(name, maxTeams = 10, options = {}) {
       this.id = options.id || `league_${Date.now()}`;
       this.name = name;
@@ -200,7 +206,7 @@ class Player {
       this.creatorId = options.creatorId || null;
       this.description = options.description || '';
       this.isPublic = options.isPublic !== undefined ? options.isPublic : true;
-      this.regions = options.regions || ['LCS', 'LEC']; // Default regions
+      this.regions = options.regions || ['AMERICAS', 'EMEA']; // Default regions using new format
       
       // Add creator as a member if provided
       if (options.creatorId) {
@@ -257,6 +263,51 @@ class Player {
         return true;
       }
       return false;
+    }
+
+    /**
+     * Add a member to the league
+     * @param {String} userId - User ID to add as member
+     * @returns {Boolean} - Whether the member was added successfully
+     */
+    addMember(userId) {
+      if (!userId) return false;
+      
+      // Check if user is already a member
+      if (this.memberIds.includes(userId)) return false;
+      
+      // Add user to members
+      this.memberIds.push(userId);
+      
+      return true;
+    }
+
+    /**
+     * Remove a member from the league
+     * @param {String} userId - User ID to remove
+     * @returns {Boolean} - Whether the member was removed successfully
+     */
+    removeMember(userId) {
+      if (!userId) return false;
+      
+      // Check if user is a member
+      const index = this.memberIds.indexOf(userId);
+      if (index === -1) return false;
+      
+      // Remove user from members
+      this.memberIds.splice(index, 1);
+      
+      return true;
+    }
+
+    /**
+     * Check if a user is a member of the league
+     * @param {String} userId - User ID to check
+     * @returns {Boolean} - Whether the user is a member
+     */
+    isMember(userId) {
+      if (!userId) return false;
+      return this.memberIds.includes(userId);
     }
   
     /**
@@ -854,16 +905,31 @@ class Player {
         return this.cache.byRegion[region];
       }
       
+      // Define region mappings for the new region names
+      const regionMappings = {
+        'AMERICAS': ['LCS', 'LLA', 'CBLOL', 'NA'],
+        'EMEA': ['LEC', 'LFL', 'LVP', 'EU'],
+        'CHINA': ['LPL'],
+        'KOREA': ['LCK']
+      };
+      
       // Cache miss, filter and store in cache
       const filteredPlayers = this.players.filter(player => {
         // Normalize region names to handle different formats
-        const playerRegion = player.region.toUpperCase();
+        const playerRegion = player.region?.toUpperCase() || '';
+        const playerHomeLeague = player.homeLeague?.toUpperCase() || '';
         const targetRegion = region.toUpperCase();
         
-        // Check if player region contains target region or vice versa
-        // Also handle special case where homeLeague matches region code
-        return playerRegion === targetRegion || 
-               (player.homeLeague && player.homeLeague.toUpperCase() === targetRegion);
+        // Check if the target region is one of the new region groups
+        if (regionMappings[targetRegion]) {
+          // Check if player's region or homeLeague is in the mapped regions
+          return regionMappings[targetRegion].some(r => 
+            playerRegion === r || playerHomeLeague === r
+          );
+        }
+        
+        // For backward compatibility with direct region matching
+        return playerRegion === targetRegion || playerHomeLeague === targetRegion;
       });
       
       this.cache.byRegion[region] = filteredPlayers;
@@ -1114,7 +1180,7 @@ class Player {
         creatorId: leagueData.creatorId,
         description: leagueData.description,
         isPublic: leagueData.isPublic,
-        regions: leagueData.regions || ['LCS', 'LEC'] // Load regions from data
+        regions: leagueData.regions || ['AMERICAS', 'EMEA'] // Use new region format as default
       });
       
       // Set current week if available
@@ -1352,7 +1418,9 @@ class Player {
      */
     addMemberToLeague(leagueId, userId) {
       console.log(`DEBUG: LeagueService.addMemberToLeague - Adding user ${userId} to league ${leagueId}`);
-      const league = this.getLeagueById(leagueId);
+      
+      // Get the league - set resolveTeams to false to get the original league object
+      const league = this.getLeagueById(leagueId, false);
       
       if (!league) {
         console.log(`DEBUG: LeagueService.addMemberToLeague - League ${leagueId} not found`);
@@ -1364,10 +1432,32 @@ class Player {
         return false;
       }
       
-      // Add the member to the league
-      const result = league.addMember(userId);
-      console.log(`DEBUG: LeagueService.addMemberToLeague - Result: ${result}, memberIds: [${league.memberIds}]`);
-      return result;
+      // Check if the league object has the addMember method
+      if (typeof league.addMember === 'function') {
+        // Use the method if available
+        const result = league.addMember(userId);
+        console.log(`DEBUG: LeagueService.addMemberToLeague - Result: ${result}, memberIds: [${league.memberIds}]`);
+        return result;
+      } else {
+        // Manually add the member if the method is not available
+        console.log(`DEBUG: LeagueService.addMemberToLeague - addMember method not found, adding manually`);
+        
+        // Initialize memberIds array if it doesn't exist
+        if (!Array.isArray(league.memberIds)) {
+          league.memberIds = [];
+        }
+        
+        // Check if user is already a member
+        if (league.memberIds.includes(userId)) {
+          console.log(`DEBUG: LeagueService.addMemberToLeague - User ${userId} is already a member of league ${leagueId}`);
+          return false;
+        }
+        
+        // Add user to members
+        league.memberIds.push(userId);
+        console.log(`DEBUG: LeagueService.addMemberToLeague - Added user ${userId} to league ${leagueId}, memberIds: [${league.memberIds}]`);
+        return true;
+      }
     }
     
     /**
@@ -1376,11 +1466,50 @@ class Player {
      * @param {String} userId - User ID to remove
      */
     removeMemberFromLeague(leagueId, userId) {
-      const league = this.getLeagueById(leagueId);
-      if (league) {
-        return league.removeMember(userId);
+      console.log(`DEBUG: LeagueService.removeMemberFromLeague - Removing user ${userId} from league ${leagueId}`);
+      
+      // Get the league - set resolveTeams to false to get the original league object
+      const league = this.getLeagueById(leagueId, false);
+      
+      if (!league) {
+        console.log(`DEBUG: LeagueService.removeMemberFromLeague - League ${leagueId} not found`);
+        return false;
       }
-      return false;
+      
+      if (!userId) {
+        console.log(`DEBUG: LeagueService.removeMemberFromLeague - User ID is null or undefined`);
+        return false;
+      }
+      
+      // Check if the league object has the removeMember method
+      if (typeof league.removeMember === 'function') {
+        // Use the method if available
+        const result = league.removeMember(userId);
+        console.log(`DEBUG: LeagueService.removeMemberFromLeague - Result: ${result}, memberIds: [${league.memberIds}]`);
+        return result;
+      } else {
+        // Manually remove the member if the method is not available
+        console.log(`DEBUG: LeagueService.removeMemberFromLeague - removeMember method not found, removing manually`);
+        
+        // Initialize memberIds array if it doesn't exist
+        if (!Array.isArray(league.memberIds)) {
+          console.log(`DEBUG: LeagueService.removeMemberFromLeague - memberIds is not an array, initializing`);
+          league.memberIds = [];
+          return false;
+        }
+        
+        // Check if user is a member
+        const index = league.memberIds.indexOf(userId);
+        if (index === -1) {
+          console.log(`DEBUG: LeagueService.removeMemberFromLeague - User ${userId} is not a member of league ${leagueId}`);
+          return false;
+        }
+        
+        // Remove user from members
+        league.memberIds.splice(index, 1);
+        console.log(`DEBUG: LeagueService.removeMemberFromLeague - Removed user ${userId} from league ${leagueId}, memberIds: [${league.memberIds}]`);
+        return true;
+      }
     }
     
     /**
@@ -1399,11 +1528,49 @@ class Player {
       }
       return false;
     }
+    
+    /**
+     * Check if a user is a member of a league
+     * @param {String} leagueId - League ID
+     * @param {String} userId - User ID to check
+     * @returns {Boolean} - Whether the user is a member of the league
+     */
+    isMemberOfLeague(leagueId, userId) {
+      console.log(`DEBUG: LeagueService.isMemberOfLeague - Checking if user ${userId} is a member of league ${leagueId}`);
+      
+      // Get the league - set resolveTeams to false to get the original league object
+      const league = this.getLeagueById(leagueId, false);
+      
+      if (!league) {
+        console.log(`DEBUG: LeagueService.isMemberOfLeague - League ${leagueId} not found`);
+        return false;
+      }
+      
+      if (!userId) {
+        console.log(`DEBUG: LeagueService.isMemberOfLeague - User ID is null or undefined`);
+        return false;
+      }
+      
+      // Check if the league object has the isMember method
+      if (typeof league.isMember === 'function') {
+        // Use the method if available
+        return league.isMember(userId);
+      } else {
+        // Manually check if the user is a member if the method is not available
+        console.log(`DEBUG: LeagueService.isMemberOfLeague - isMember method not found, checking manually`);
+        
+        // Initialize memberIds array if it doesn't exist
+        if (!Array.isArray(league.memberIds)) {
+          console.log(`DEBUG: LeagueService.isMemberOfLeague - memberIds is not an array, initializing`);
+          league.memberIds = [];
+          return false;
+        }
+        
+        // Check if user is a member
+        return league.memberIds.includes(userId);
+      }
+    }
   }
-  
-  // ===============================================
-  // AUTOMATIC STATS UPDATER
-  // ===============================================
   
   /**
    * StatsUpdater class for automatically refreshing player stats

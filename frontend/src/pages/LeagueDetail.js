@@ -929,11 +929,37 @@ const LeagueDetail = () => {
               <Box mt={3}>
                 <Text fontWeight="semibold" mb={1}>Regions:</Text>
                 <HStack spacing={2}>
-                  {league.regions.map((region, idx) => (
-                    <Badge key={idx} colorScheme="yellow" fontSize="sm" px={2} py={1} borderRadius="full">
-                      {region}
-                    </Badge>
-                  ))}
+                  {league.regions.map((region, idx) => {
+                    // Map region codes to user-friendly names
+                    const regionDisplayNames = {
+                      'AMERICAS': 'Americas',
+                      'EMEA': 'Europe, Middle East & Africa',
+                      'CHINA': 'China',
+                      'KOREA': 'Korea',
+                      // Legacy mappings for backward compatibility
+                      'LCS': 'North America',
+                      'LEC': 'Europe',
+                      'LCK': 'Korea',
+                      'LPL': 'China',
+                      'NORTH': 'LTA North',
+                      'SOUTH': 'LTA South'
+                    };
+                    
+                    return (
+                      <Badge 
+                        key={idx} 
+                        colorScheme="yellow" 
+                        fontSize="sm" 
+                        px={2} 
+                        py={1} 
+                        borderRadius="full"
+                        bg="yellow.400"
+                        color="gray.800"
+                      >
+                        {regionDisplayNames[region] || region}
+                      </Badge>
+                    );
+                  })}
                 </HStack>
               </Box>
             )}
@@ -954,7 +980,7 @@ const LeagueDetail = () => {
           <Button
             as={RouterLink}
             to={`/${league.id}/players`}
-            colorScheme="teal"
+            colorScheme="yellow"
             size="sm"
           >
             View Players
@@ -963,7 +989,7 @@ const LeagueDetail = () => {
           <Button
             as={RouterLink}
             to="/standings"
-            colorScheme="teal"
+            colorScheme="yellow"
             size="sm"
           >
             Standings
@@ -972,7 +998,7 @@ const LeagueDetail = () => {
           <Button
             as={RouterLink}
             to="/matchups"
-            colorScheme="teal"
+            colorScheme="yellow"
             size="sm"
           >
             Matchups

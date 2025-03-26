@@ -223,7 +223,7 @@ async function saveLeagueData() {
       existingLeague.name = league.name;
       existingLeague.maxTeams = league.maxTeams;
       existingLeague.teams = league.teams ? league.teams.map(team => typeof team === 'object' ? team.id : team) : [];
-      existingLeague.regions = league.regions || ['LCS', 'LEC'];
+      existingLeague.regions = league.regions || ['AMERICAS', 'EMEA'];
       existingLeague.currentWeek = league.currentWeek || 1;
       existingLeague.memberIds = validMemberIds;
       existingLeague.creatorId = league.creatorId;
@@ -246,7 +246,7 @@ async function saveLeagueData() {
         name: league.name,
         maxTeams: league.maxTeams,
         teams: league.teams ? league.teams.map(team => typeof team === 'object' ? team.id : team) : [],
-        regions: league.regions || ['LCS', 'LEC'],
+        regions: league.regions || ['AMERICAS', 'EMEA'],
         currentWeek: league.currentWeek || 1,
         memberIds: validMemberIds,
         creatorId: league.creatorId,
@@ -888,7 +888,7 @@ app.post('/api/leagues', auth, async (req, res) => {
     creatorId: req.user.id,
     description,
     isPublic: isPublic === undefined ? true : isPublic,
-    regions: regions || ['LCS', 'LEC'] // Default to North America and Europe if not specified
+    regions: regions || ['AMERICAS', 'EMEA'] // Default to AMERICAS and EMEA if not specified
   });
   
   console.log(`DEBUG: League created with ID ${league.id}`);

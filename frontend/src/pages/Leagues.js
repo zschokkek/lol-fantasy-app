@@ -125,17 +125,15 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
   const [maxTeams, setMaxTeams] = useState(12);
   const [isPublic, setIsPublic] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedRegions, setSelectedRegions] = useState(['LCS', 'LEC']);
+  const [selectedRegions, setSelectedRegions] = useState([]);
   const { createLeague } = useApi();
   const toast = useToast();
   
   const regionOptions = [
-    { value: 'LCS', label: 'North America (LCS)' },
-    { value: 'LEC', label: 'Europe (LEC)' },
-    { value: 'LCK', label: 'Korea (LCK)' },
-    { value: 'LPL', label: 'China (LPL)' },
-    { value: 'NORTH', label: 'LTA North' },
-    { value: 'SOUTH', label: 'LTA South' },
+    { value: 'AMERICAS', label: 'Americas' },
+    { value: 'EMEA', label: 'Europe, Middle East & Africa' },
+    { value: 'CHINA', label: 'China' },
+    { value: 'KOREA', label: 'Korea' },
   ];
   
   const handleRegionChange = (selectedValues) => {
@@ -189,7 +187,7 @@ const CreateLeagueModal = ({ isOpen, onClose, onCreate }) => {
       setDescription('');
       setMaxTeams(12);
       setIsPublic(true);
-      setSelectedRegions(['LCS', 'LEC']);
+      setSelectedRegions([]);
       onClose();
       
       if (newLeague) {

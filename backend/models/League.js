@@ -74,7 +74,7 @@ const leagueSchema = new mongoose.Schema({
   },
   regions: {
     type: [String],
-    default: ['LCS', 'LEC']
+    default: ['AMERICAS', 'EMEA']
   }
 }, {
   timestamps: true
