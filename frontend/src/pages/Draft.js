@@ -370,7 +370,7 @@ const Draft = () => {
   
   return (
     <Box>
-      <Flex mb={4} align="center">
+      <Flex mb={4} align="center" justifyContent="flex-start" width="100%">
         <IconButton
           icon={<ChevronLeftIcon boxSize={6} />}
           aria-label="Back to league"
@@ -380,6 +380,7 @@ const Draft = () => {
           onClick={handleBack}
           mr={2}
           _hover={{ bg: 'yellow.500', color: 'white' }}
+          marginLeft={0}
         />
         <Text color="gray.400" fontSize="md">Back to League</Text>
       </Flex>

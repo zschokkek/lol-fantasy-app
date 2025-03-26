@@ -38,7 +38,7 @@ const leagueSchema = new mongoose.Schema({
     default: 10
   },
   teams: [{
-    type: String,
+    type: mongoose.Schema.Types.Mixed,
     ref: 'FantasyTeam'
   }],
   schedule: [weekScheduleSchema],
@@ -117,14 +117,17 @@ leagueSchema.methods.addTeam = function(team) {
     return false;
   }
   
-  // Add team to league (store as string ID for consistency)
+  // Add team to league - store the full team object if provided, otherwise store the ID
   console.log(`Adding team ${teamId} to league ${this.id}`);
-  this.teams.push(teamId.toString());
-  
-  // Update team's leagueId if we received a team object
   if (typeof team === 'object') {
+    // Store the full team object
     team.leagueId = this.id;
-    console.log(`Updated team ${team.id} with leagueId ${this.id}`);
+    this.teams.push(team);
+    console.log(`Added full team object ${team.id} to league ${this.id}`);
+  } else {
+    // Store just the ID if that's all we have
+    this.teams.push(teamId.toString());
+    console.log(`Added team ID ${teamId} to league ${this.id}`);
   }
   
   return true;
@@ -132,7 +135,13 @@ leagueSchema.methods.addTeam = function(team) {
 
 leagueSchema.methods.removeTeam = function(teamId) {
   // Check if team is in the league
-  const index = this.teams.indexOf(teamId);
+  const index = this.teams.findIndex(team => {
+    if (typeof team === 'object') {
+      return team.id === teamId;
+    } else {
+      return team === teamId;
+    }
+  });
   
   if (index === -1) return false;
   
@@ -239,8 +248,18 @@ leagueSchema.methods.calculateWeekScores = async function(week) {
   // Calculate scores for each matchup
   for (const matchup of weekSchedule.matchups) {
     // Get teams
-    const teamA = await FantasyTeam.findOne({ id: matchup.teamA });
-    const teamB = await FantasyTeam.findOne({ id: matchup.teamB });
+    let teamA, teamB;
+    if (typeof matchup.teamA === 'object') {
+      teamA = matchup.teamA;
+    } else {
+      teamA = await FantasyTeam.findOne({ id: matchup.teamA });
+    }
+    
+    if (typeof matchup.teamB === 'object') {
+      teamB = matchup.teamB;
+    } else {
+      teamB = await FantasyTeam.findOne({ id: matchup.teamB });
+    }
     
     if (!teamA || !teamB) continue;
     
@@ -276,13 +295,22 @@ leagueSchema.methods.updateStandings = async function() {
   const standingsMap = new Map();
   
   // Initialize standings for all teams
-  for (const teamId of this.teams) {
-    standingsMap.set(teamId, {
-      teamId,
-      wins: 0,
-      losses: 0,
-      points: 0
-    });
+  for (const team of this.teams) {
+    if (typeof team === 'object') {
+      standingsMap.set(team.id, {
+        teamId: team.id,
+        wins: 0,
+        losses: 0,
+        points: 0
+      });
+    } else {
+      standingsMap.set(team, {
+        teamId: team,
+        wins: 0,
+        losses: 0,
+        points: 0
+      });
+    }
   }
   
   // Calculate standings based on matchups

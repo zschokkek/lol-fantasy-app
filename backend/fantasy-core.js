@@ -95,6 +95,7 @@ class Player {
       };
       this.totalPoints = 0;
       this.weeklyPoints = {};
+      this.userId = null; // Add this property to track ownership
     }
   
     /**
@@ -1063,6 +1064,7 @@ class Player {
      * Create a new fantasy team
      * @param {String} name - Team name
      * @param {String} owner - Team owner
+     * @param {String} userId - User ID of the team owner
      */
     createTeam(name, owner, userId) {
         const id = `team_${Date.now()}`;
@@ -1084,6 +1086,7 @@ class Player {
           data.name,
           data.owner
         );
+        team.userId = data.userId; // Add this property to track ownership
         
         // Add players to positions
         for (const position of ["TOP", "JUNGLE", "MID", "ADC", "SUPPORT", "FLEX"]) {
@@ -1374,56 +1377,54 @@ class Player {
         creatorId: league.creatorId,
         description: league.description || '',
         regions: Array.isArray(league.regions) ? [...league.regions] : [],
-        teams: Array.isArray(league.teams) ? [...league.teams] : []  // Initial copy of team IDs
+        teams: [] // Initialize empty array for teams
       };
       
-      // If teams should be resolved, replace team IDs with actual team objects
-      if (resolveTeams && Array.isArray(leagueCopy.teams)) {
-        console.log(`Resolving ${leagueCopy.teams.length} team references for league ${id}`);
+      // Process teams - handle both object references and IDs
+      if (Array.isArray(league.teams)) {
+        console.log(`Processing ${league.teams.length} teams for league ${id}`);
         
-        // Get reference to the teamService from the global scope
-        // In fantasy-core.js, we can't require the service from a path as it would cause circular dependencies
+        // Get reference to the teamService from the global scope if needed
         const teamService = global.teamService;
         
-        if (!teamService) {
-          console.error('TeamService not found in global scope');
-          return leagueCopy; // Return without resolving teams if service not available
-        }
-        
-        // Replace team IDs with actual team objects
-        leagueCopy.teams = leagueCopy.teams.map(teamId => {
-          // Handle case where team might already be an object
-          if (typeof teamId === 'object' && teamId !== null) {
-            // Create a safe copy of the already resolved team object to avoid circular references
-            return {
-              id: teamId.id,
-              name: teamId.name,
-              owner: teamId.owner,
-              leagueId: teamId.leagueId,
-              totalPoints: teamId.totalPoints || 0
-            };
-          }
-          
-          // Try to get the team by ID
-          const team = teamService.getTeamById(teamId);
-          if (team) {
-            // Create a safe copy of the team object with only needed properties
+        leagueCopy.teams = league.teams.map(team => {
+          // If team is already a full object, create a safe copy
+          if (typeof team === 'object' && team !== null) {
             return {
               id: team.id,
               name: team.name,
               owner: team.owner,
               leagueId: team.leagueId,
+              userId: team.userId, // Preserve user ID for ownership
               totalPoints: team.totalPoints || 0,
-              // Include only necessary properties to avoid circular references
+              players: team.players || [], // Include players data
             };
-          } else {
-            console.log(`Warning: Team ${teamId} not found when resolving for league ${id}`);
-            // Return a placeholder to avoid null values
-            return { id: teamId, name: 'Team not found', owner: 'Unknown' };
+          } 
+          // If team is just an ID and we need to resolve it
+          else if (resolveTeams && teamService) {
+            const teamObj = teamService.getTeamById(team);
+            if (teamObj) {
+              return {
+                id: teamObj.id,
+                name: teamObj.name,
+                owner: teamObj.owner,
+                leagueId: teamObj.leagueId,
+                userId: teamObj.userId, // Preserve user ID for ownership
+                totalPoints: teamObj.totalPoints || 0,
+                players: teamObj.players || [], // Include players data
+              };
+            } else {
+              console.log(`Warning: Team ${team} not found when resolving for league ${id}`);
+              return { id: team, name: 'Team not found', owner: 'Unknown' };
+            }
+          } 
+          // If team is just an ID and we don't need to resolve it
+          else {
+            return team;
           }
         }).filter(team => team !== null && team !== undefined); // Filter out any null/undefined teams
         
-        console.log(`Resolved ${leagueCopy.teams.length} teams for league ${id}`);
+        console.log(`Processed ${leagueCopy.teams.length} teams for league ${id}`);
       }
       
       return leagueCopy;

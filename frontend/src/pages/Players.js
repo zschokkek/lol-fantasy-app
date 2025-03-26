@@ -124,178 +124,185 @@ const Players = () => {
   }
 
   return (
-    <Box p={5}>
-      <Flex mb={4} align="center">
-        <IconButton
-          icon={<ChevronLeftIcon boxSize={6} />}
-          aria-label="Back to leagues"
-          variant="ghost"
-          colorScheme="yellow"
-          size="lg"
-          onClick={handleBack}
-          mr={2}
-          _hover={{ bg: 'yellow.500', color: 'white' }}
-        />
-        <Text color="gray.400" fontSize="md">Back to Leagues</Text>
-      </Flex>
-      
-      <Heading mb={4} bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">
-        Players
-      </Heading>
-      
-      {league && (
-        <Alert status="info" mb={4} bg="blue.800" color="white" borderRadius="md">
-          <Text fontWeight="bold">League: {league.name}</Text>
-        </Alert>
-      )}
-      
-      <Box bg="gray.800" p={4} rounded="md" shadow="lg" mb={6} borderWidth={1} borderColor="gray.700">
-        <Flex direction={{ base: 'column', md: 'row' }} gap={4} mb={4}>
-          <Input
-            placeholder="Search players..."
-            value={searchTerm}
-            onChange={handleSearchChange}
-            bg="gray.700"
-            borderColor="gray.600"
-            _hover={{ borderColor: 'yellow.400' }}
-          />
-          
-          <Select 
-            placeholder="Filter by region" 
-            value={regionFilter}
-            onChange={handleRegionChange}
-            bg="gray.700"
-            borderColor="gray.600"
-            _hover={{ borderColor: 'yellow.400' }}
-          >
-            <option value="LCS">LCS</option>
-            <option value="LEC">LEC</option>
-            <option value="LCK">LCK</option>
-            <option value="LPL">LPL</option>
-          </Select>
-          
-          <Select 
-            placeholder="Filter by position" 
-            value={positionFilter}
-            onChange={handlePositionChange}
-            bg="gray.700"
-            borderColor="gray.600"
-            _hover={{ borderColor: 'yellow.400' }}
-          >
-            <option value="TOP">Top</option>
-            <option value="JUNGLE">Jungle</option>
-            <option value="MID">Mid</option>
-            <option value="ADC">ADC</option>
-            <option value="SUPPORT">Support</option>
-            <option value="TEAM">Team</option>
-          </Select>
-          
-          <Button 
-            onClick={clearFilters} 
+    <Box>
+      <Box position="sticky" left={0} pl={0} width="100%" mt={0} zIndex={1} bg="gray.900" py={0}>
+        <Flex align="center" width="100%" pl={2}>
+          <IconButton
+            icon={<ChevronLeftIcon boxSize={6} />}
+            aria-label="Back to leagues"
+            variant="ghost"
             colorScheme="yellow"
-            _hover={{ bg: 'yellow.500' }}
-          >
-            Clear Filters
-          </Button>
+            size="lg"
+            onClick={handleBack}
+            mr={1}
+            _hover={{ bg: 'yellow.500', color: 'white' }}
+            p={1}
+          />
+          <Text color="gray.400" fontSize="md">Back to Leagues</Text>
         </Flex>
       </Box>
       
-      {filteredPlayers.length > 0 ? (
-        <Box overflowX="auto">
-          <Table variant="simple" colorScheme="whiteAlpha" bg="#1A202C" borderRadius="md" overflow="hidden">
-            <Thead bg="#171923">
-              <Tr>
-                <Th color="gray.300" width="30%">PLAYER</Th>
-                <Th color="gray.300" width="15%">POSITION</Th>
-                <Th color="gray.300" width="30%">TEAM</Th>
-                <Th color="gray.300" width="15%">REGION</Th>
-                <Th color="gray.300" isNumeric width="10%">FANTASY POINTS</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {filteredPlayers.map(player => (
-                <Tr 
-                  key={player.id} 
-                  _hover={{ bg: '#2D3748', cursor: 'pointer' }}
-                  onClick={() => navigate(`/players/${player.id}?leagueId=${leagueId}`)}
-                  borderBottomWidth="1px"
-                  borderColor="#2D3748"
-                >
-                  <Td>
-                    <HStack spacing={3}>
-                      <Avatar 
-                        size="sm" 
-                        name={player.name} 
-                        src={player.imageUrl} 
+      <Box p={5} mt={8}>
+        <Heading mb={4} bgGradient="linear(to-r, yellow.400, orange.300)" bgClip="text">
+          Players
+        </Heading>
+        
+        {league && (
+          <Alert status="info" mb={4} bg="blue.800" color="white" borderRadius="md">
+            <Text fontWeight="bold">League: {league.name}</Text>
+          </Alert>
+        )}
+        
+        <Box bg="gray.800" p={4} rounded="md" shadow="lg" mb={6} borderWidth={1} borderColor="gray.700">
+          <Flex direction={{ base: 'column', md: 'row' }} gap={4} mb={4}>
+            <Input
+              placeholder="Search players..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              bg="gray.700"
+              borderColor="gray.600"
+              _hover={{ borderColor: 'yellow.400' }}
+            />
+            
+            <Select 
+              placeholder="Filter by region" 
+              value={regionFilter}
+              onChange={handleRegionChange}
+              bg="gray.700"
+              borderColor="gray.600"
+              _hover={{ borderColor: 'yellow.400' }}
+            >
+              <option value="LCS">LCS</option>
+              <option value="LEC">LEC</option>
+              <option value="LCK">LCK</option>
+              <option value="LPL">LPL</option>
+            </Select>
+            
+            <Select 
+              placeholder="Filter by position" 
+              value={positionFilter}
+              onChange={handlePositionChange}
+              bg="gray.700"
+              borderColor="gray.600"
+              _hover={{ borderColor: 'yellow.400' }}
+            >
+              <option value="TOP">Top</option>
+              <option value="JUNGLE">Jungle</option>
+              <option value="MID">Mid</option>
+              <option value="ADC">ADC</option>
+              <option value="SUPPORT">Support</option>
+              <option value="TEAM">Team</option>
+            </Select>
+            
+            <Button 
+              onClick={clearFilters} 
+              colorScheme="yellow"
+              _hover={{ bg: 'yellow.500' }}
+            >
+              Clear Filters
+            </Button>
+          </Flex>
+        </Box>
+        
+        {filteredPlayers.length > 0 ? (
+          <Box overflowX="auto">
+            <Table variant="simple" colorScheme="whiteAlpha" bg="#1A202C" borderRadius="md" overflow="hidden">
+              <Thead bg="#171923">
+                <Tr>
+                  <Th color="gray.300" width="30%">PLAYER</Th>
+                  <Th color="gray.300" width="15%">POSITION</Th>
+                  <Th color="gray.300" width="30%">TEAM</Th>
+                  <Th color="gray.300" width="15%">REGION</Th>
+                  <Th color="gray.300" isNumeric width="10%">FANTASY POINTS</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {filteredPlayers.map(player => (
+                  <Tr 
+                    key={player.id} 
+                    _hover={{ bg: '#2D3748', cursor: 'pointer' }}
+                    onClick={() => navigate(`/players/${player.id}?leagueId=${leagueId}`)}
+                    borderBottomWidth="1px"
+                    borderColor="#2D3748"
+                  >
+                    <Td>
+                      <HStack spacing={3}>
+                        <Avatar 
+                          size="sm" 
+                          name={player.name}
+                          src={player.imageUrl || ''}
+                          bg={
+                            !player.imageUrl ? (
+                              player.name?.charAt(0).toLowerCase() === 'k' ? 'green.500' :
+                              player.name?.charAt(0).toLowerCase() === 'c' ? 'blue.500' :
+                              player.name?.charAt(0).toLowerCase() === 't' ? 'yellow.500' :
+                              player.name?.charAt(0).toLowerCase() === 'h' ? 'green.300' :
+                              player.name?.charAt(0).toLowerCase() === 'n' ? 'blue.300' :
+                              player.name?.charAt(0).toLowerCase() === 'd' ? 'blue.700' :
+                              player.name?.charAt(0).toLowerCase() === 's' ? 'teal.500' :
+                              'purple.500'
+                            ) : 'transparent'
+                          }
+                          color="white"
+                          fontWeight="bold"
+                          borderColor="yellow.400"
+                          borderWidth="2px"
+                        />
+                        <Text fontWeight="medium" color="white">{player.name}</Text>
+                      </HStack>
+                    </Td>
+                    <Td>
+                      <Badge 
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                        textTransform="uppercase"
+                        fontWeight="bold"
+                        fontSize="xs"
                         bg={
-                          player.name?.charAt(0).toLowerCase() === 'k' ? 'green.500' :
-                          player.name?.charAt(0).toLowerCase() === 'c' ? 'blue.500' :
-                          player.name?.charAt(0).toLowerCase() === 't' ? 'yellow.500' :
-                          player.name?.charAt(0).toLowerCase() === 'h' ? 'green.300' :
-                          player.name?.charAt(0).toLowerCase() === 'n' ? 'blue.300' :
-                          player.name?.charAt(0).toLowerCase() === 'd' ? 'blue.700' :
-                          player.name?.charAt(0).toLowerCase() === 's' ? 'teal.500' :
-                          'purple.500'
+                          player.position === 'TOP' ? '#F56565' :
+                          player.position === 'JUNGLE' ? '#48BB78' :
+                          player.position === 'MID' ? '#4299E1' :
+                          player.position === 'ADC' ? '#9F7AEA' :
+                          player.position === 'SUPPORT' ? '#ECC94B' :
+                          '#718096'
                         }
                         color="white"
-                        fontWeight="bold"
                       >
-                        {player.name?.charAt(0)}
-                      </Avatar>
-                      <Text fontWeight="medium" color="white">{player.name}</Text>
-                    </HStack>
-                  </Td>
-                  <Td>
-                    <Badge 
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      textTransform="uppercase"
-                      fontWeight="bold"
-                      fontSize="xs"
-                      bg={
-                        player.position === 'TOP' ? '#F56565' :
-                        player.position === 'JUNGLE' ? '#48BB78' :
-                        player.position === 'MID' ? '#4299E1' :
-                        player.position === 'ADC' ? '#9F7AEA' :
-                        player.position === 'SUPPORT' ? '#ECC94B' :
-                        '#718096'
-                      }
-                      color="white"
-                    >
-                      {player.position}
-                    </Badge>
-                  </Td>
-                  <Td color="white">{player.team}</Td>
-                  <Td>
-                    <Badge 
-                      px={2}
-                      py={1}
-                      borderRadius="md"
-                      textTransform="uppercase"
-                      fontWeight="bold"
-                      fontSize="xs"
-                      bg="#4A5568"
-                      color="white"
-                    >
-                      {player.region || player.homeLeague}
-                    </Badge>
-                  </Td>
-                  <Td isNumeric color="white">{player.fantasyPoints?.total || 0}</Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        </Box>
-      ) : (
-        <Center h="200px" bg="gray.800" borderRadius="md" p={6}>
-          <Text color="gray.400">
-            {players.length > 0 
-              ? 'No players match your filters. Try adjusting your search criteria.'
-              : 'No players found for this league.'}
-          </Text>
-        </Center>
-      )}
+                        {player.position}
+                      </Badge>
+                    </Td>
+                    <Td color="white">{player.team}</Td>
+                    <Td>
+                      <Badge 
+                        px={2}
+                        py={1}
+                        borderRadius="md"
+                        textTransform="uppercase"
+                        fontWeight="bold"
+                        fontSize="xs"
+                        bg="#4A5568"
+                        color="white"
+                      >
+                        {player.region || player.homeLeague}
+                      </Badge>
+                    </Td>
+                    <Td isNumeric color="white">{player.fantasyPoints?.total || 0}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </Box>
+        ) : (
+          <Center h="200px" bg="gray.800" borderRadius="md" p={6}>
+            <Text color="gray.400">
+              {players.length > 0 
+                ? 'No players match your filters. Try adjusting your search criteria.'
+                : 'No players found for this league.'}
+            </Text>
+          </Center>
+        )}
+      </Box>
     </Box>
   );
 };

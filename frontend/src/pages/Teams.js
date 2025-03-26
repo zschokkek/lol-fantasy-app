@@ -146,19 +146,22 @@ const Teams = () => {
   
   return (
     <Box>
-      <Flex mb={4} align="center">
-        <IconButton
-          icon={<ChevronLeftIcon boxSize={6} />}
-          aria-label="Back to leagues"
-          variant="ghost"
-          colorScheme="yellow"
-          size="lg"
-          onClick={handleBack}
-          mr={2}
-          _hover={{ bg: 'yellow.500', color: 'white' }}
-        />
-        <Text color="gray.400" fontSize="md">Back to Leagues</Text>
-      </Flex>
+      <Box mb={6}>
+        <Flex align="center" justifyContent="flex-start" width="100%" mb={4}>
+          <IconButton
+            icon={<ChevronLeftIcon boxSize={6} />}
+            aria-label="Back to leagues"
+            variant="ghost"
+            colorScheme="yellow"
+            size="lg"
+            onClick={handleBack}
+            mr={2}
+            _hover={{ bg: 'yellow.500', color: 'white' }}
+            marginLeft={0}
+          />
+          <Text color="gray.400" fontSize="md">Back to Leagues</Text>
+        </Flex>
+      </Box>
       
       <Flex justify="space-between" align="center" mb={6}>
         <Heading color="white">My Teams</Heading>
