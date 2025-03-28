@@ -3,7 +3,7 @@ import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box, Heading, Text, Button, Flex, SimpleGrid, Link,
   Divider, Tabs, TabList, Tab, TabPanels, TabPanel,
-  Badge, Spinner, useDisclosure, Modal, ModalOverlay,
+  Badge, Skeleton, useDisclosure, Modal, ModalOverlay,
   ModalContent, ModalHeader, ModalBody, ModalCloseButton,
   FormControl, FormLabel, Input, useToast, ModalFooter,
   HStack, VStack, Icon, Table, Thead, Tbody, Tr, Th, Td,
@@ -17,7 +17,7 @@ import {
 import { 
   AddIcon, StarIcon, CheckIcon, CalendarIcon, 
   TimeIcon, InfoIcon, WarningIcon, SettingsIcon, RepeatIcon,
-  ChevronLeftIcon
+  ChevronLeftIcon, ArrowBackIcon
 } from '@chakra-ui/icons';
 import { useApi } from '../context/ApiContext';
 import { useAuth } from '../context/AuthContext';
@@ -583,13 +583,15 @@ const LeagueDetail = () => {
   const navigate = useNavigate();
   
   // State for handling loading and error states
-  const [loadingLeague, setLoadingLeague] = useState(false);
+  const [loadingLeague, setLoadingLeague] = useState(true);
   const [loadingError, setLoadingError] = useState(null);
   
   useEffect(() => {
     const fetchLeague = async () => {
       try {
         setLoadingLeague(true);
+        setLoadingError(null); // Clear any previous errors
+        
         // Log league ID for debugging
         console.log('Fetching league with ID:', id);
         
@@ -620,15 +622,18 @@ const LeagueDetail = () => {
             console.error('Error fetching matchups:', err);
             // Non-critical error, just log it
           }
+        } else {
+          // Handle case where league data is null but no error was thrown
+          setLoadingError('League not found');
         }
       } catch (error) {
         console.error('Error fetching league:', error);
         // Set a user-friendly error message
         let errorMessage = 'Failed to load league details';
         
-        if (error.message.includes('HTML')) {
+        if (error.message?.includes('HTML')) {
           errorMessage = 'The server is having trouble. Please try again later or contact support.';
-        } else if (error.message.includes('Network')) {
+        } else if (error.message?.includes('Network')) {
           errorMessage = 'Network error. Please check your internet connection.';
         }
         
@@ -851,37 +856,74 @@ const LeagueDetail = () => {
     navigate('/leagues');
   };
 
-  if (loading && !league) {
+  // Replace the existing loading state with a skeleton UI
+  if (loadingLeague) {
     return (
-      <Flex justify="center" align="center" height="70vh" direction="column">
-        <Spinner 
-          thickness="4px"
-          speed="0.65s"
-          emptyColor="gray.700"
-          color="yellow.500"
-          size="xl"
-          mb={4}
-        />
-        <Text color="gray.300">Loading league details...</Text>
-      </Flex>
+      <Box maxW="1200px" mx="auto" px={4} py={8}>
+        <Button 
+          leftIcon={<ArrowBackIcon />} 
+          variant="ghost" 
+          color="gray.400" 
+          mb={6}
+          isDisabled
+        >
+          Back to Leagues
+        </Button>
+        
+        <Grid templateColumns={{ base: "1fr", lg: "3fr 1fr" }} gap={8}>
+          {/* Main Content Skeleton */}
+          <GridItem>
+            <Skeleton height="60px" width="70%" mb={6} startColor="gray.700" endColor="gray.600" />
+            
+            <Flex justify="space-between" align="center" mb={6}>
+              <Skeleton height="20px" width="40%" startColor="gray.700" endColor="gray.600" />
+              <Skeleton height="40px" width="120px" startColor="gray.700" endColor="gray.600" />
+            </Flex>
+            
+            {/* Tabs Skeleton */}
+            <Box bg="gray.800" p={6} rounded="lg" borderWidth="1px" borderColor="gray.700" mb={6}>
+              <Flex mb={6}>
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} height="40px" width="100px" mr={4} startColor="gray.700" endColor="gray.600" />
+                ))}
+              </Flex>
+              
+              {/* Teams Skeleton */}
+              <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} height="160px" startColor="gray.700" endColor="gray.600" />
+                ))}
+              </SimpleGrid>
+            </Box>
+          </GridItem>
+          
+          {/* Sidebar Skeleton */}
+          <GridItem>
+            <Skeleton height="300px" startColor="gray.700" endColor="gray.600" />
+          </GridItem>
+        </Grid>
+      </Box>
     );
   }
   
-  if (error || !league) {
+  // Only show error if we're not loading and there's an actual error or no league data
+  if (!loadingLeague && (loadingError || !league)) {
     return (
       <Flex justify="center" align="center" height="70vh" direction="column">
         <Box p={8} bg="gray.800" rounded="lg" borderWidth={1} borderColor="red.500" maxW="500px" textAlign="center">
           <WarningIcon boxSize={10} color="red.500" mb={4} />
-          <Heading size="md" color="white" mb={4}>Error Loading League</Heading>
+          <Heading size="md" mb={2} fontWeight="bold" color="white">Error Loading League</Heading>
           <Text color="gray.300" mb={6}>
-            {error?.includes('HTML') ? 
-              'The server returned an unexpected response. This might be due to server maintenance or an internal error.' :
-              error || 'League not found'}
+            {loadingError || 'League not found'}
           </Text>
           <Button
             leftIcon={<RepeatIcon />}
             colorScheme="yellow"
-            onClick={() => window.location.reload()}
+            onClick={() => {
+              setLoadingLeague(true);
+              setLoadingError(null);
+              window.location.reload();
+            }}
           >
             Try Again
           </Button>

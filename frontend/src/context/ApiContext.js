@@ -59,8 +59,12 @@ export const ApiProvider = ({ children }) => {
       }
     }
     
-    setLoading(true);
-    setError(null);
+    // Only set loading to true if this is not a background refresh
+    // This prevents the UI from showing loading indicators for background operations
+    if (!options.backgroundRefresh) {
+      setLoading(true);
+      setError(null);
+    }
     
     try {
       const url = `${API_URL}${endpoint}`;
@@ -130,7 +134,11 @@ export const ApiProvider = ({ children }) => {
         setCachedData(cacheKey, data, cacheTime);
       }
       
-      setLoading(false);
+      // Only update loading state if this is not a background refresh
+      if (!options.backgroundRefresh) {
+        setLoading(false);
+      }
+      
       return data;
     } catch (error) {
       console.error('API request failed:', error);
@@ -142,8 +150,12 @@ export const ApiProvider = ({ children }) => {
         errorMessage = 'Network error: Unable to connect to the server. Please check your internet connection.';
       }
       
-      setError(errorMessage);
-      setLoading(false);
+      // Only update error state if this is not a background refresh
+      if (!options.backgroundRefresh) {
+        setError(errorMessage);
+        setLoading(false);
+      }
+      
       throw new Error(errorMessage);
     }
   }, [token]);
@@ -249,8 +261,13 @@ export const ApiProvider = ({ children }) => {
   const getLeagueById = useCallback((id, refresh = false) => {
     // If refresh is true, add a query param to bust cache and get fresh data
     const endpoint = refresh ? `/leagues/${id}?refresh=true` : `/leagues/${id}`;
+    
+    // Set backgroundRefresh option if this is a refresh request
+    // This prevents loading indicators from showing during background refreshes
+    const options = refresh ? { backgroundRefresh: true } : {};
+    
     // Always bypass cache when refresh is true
-    return fetchData(endpoint, {}, !refresh);
+    return fetchData(endpoint, options, !refresh);
   }, [fetchData]);
 
   const createLeague = useCallback((leagueData) => 
