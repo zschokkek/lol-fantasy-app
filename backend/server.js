@@ -259,12 +259,45 @@ app.post('/api/admin/fill-league/:leagueId', auth, async (req, res) => {
     }
     
     const { leagueId } = req.params;
-    const { numTeams = 12, numWeeks = 11 } = req.body;
     
     // Get the league
     const league = leagueService.getLeagueById(leagueId);
     if (!league) {
       return res.status(404).json({ message: 'League not found' });
+    }
+    
+    console.log(`DEBUG: Filling league ${leagueId}`);
+    
+    // Ensure maxTeams is a number
+    let maxTeams = 8; // Default value
+    if (typeof league.maxTeams === 'number') {
+      maxTeams = league.maxTeams;
+    } else if (typeof league.maxTeams === 'string') {
+      // Try to extract a number from the string
+      const match = league.maxTeams.match(/(\d+)/);
+      if (match) {
+        maxTeams = parseInt(match[1], 10);
+      }
+    }
+    
+    // Make sure we have an array of teams
+    if (!Array.isArray(league.teams)) {
+      league.teams = [];
+    }
+    
+    // Count existing teams
+    const existingTeamCount = league.teams.length;
+    
+    // Calculate how many teams we need to add
+    const teamsToAdd = Math.max(0, maxTeams - existingTeamCount);
+    
+    console.log(`DEBUG: League has ${existingTeamCount}/${maxTeams} teams, adding ${teamsToAdd} more`);
+    
+    if (teamsToAdd <= 0) {
+      return res.status(200).json({ 
+        message: `League already has ${existingTeamCount}/${maxTeams} teams. No need to add more.`,
+        league: league
+      });
     }
     
     // Team names for auto-filling
@@ -283,154 +316,103 @@ app.post('/api/admin/fill-league/:leagueId', auth, async (req, res) => {
       'Fnatic'
     ];
     
-    // Check how many teams we need to create
-    const existingTeamCount = league.teams.length;
-    const teamsToCreate = Math.min(numTeams - existingTeamCount, TEAM_NAMES.length);
-    
-    if (teamsToCreate <= 0) {
-      return res.status(400).json({ 
-        message: `League already has ${existingTeamCount} teams. Cannot add more teams.`,
-        league: league
-      });
-    }
-    
     // Create teams and add to league
     const createdTeams = [];
-    for (let i = 0; i < teamsToCreate; i++) {
-      const teamName = TEAM_NAMES[i % TEAM_NAMES.length];
-      const owner = `Bot Owner ${i + 1}`;
+    
+    for (let i = 0; i < teamsToAdd; i++) {
+      const teamIndex = i % TEAM_NAMES.length;
+      const teamName = `${TEAM_NAMES[teamIndex]} ${existingTeamCount + i + 1}`;
+      const owner = `Bot ${existingTeamCount + i + 1}`;
       
+      // Create the team
+      const team = {
+        id: `team_${Date.now() + i}`,
+        name: teamName,
+        owner: owner,
+        leagueId: leagueId,
+        players: {},
+        totalPoints: 0
+      };
+      
+      // Add team to league
+      league.teams.push(team);
+      
+      // Also add to teamService
+      teamService.teams.push(team);
+      
+      // Save team to MongoDB
       try {
-        // Create the team
-        const team = teamService.createTeam(`${teamName} ${i + 1}`, owner);
-        console.log(`DEBUG: Created team ${team.name} with ID ${team.id}`);
+        const newTeam = new FantasyTeam({
+          id: team.id,
+          name: team.name,
+          owner: team.owner,
+          userId: null, // Bot teams don't have a real user
+          leagueId: leagueId,
+          players: {}
+        });
         
-        // Add to league (using the correct method that handles the team ID)
-        if (typeof league.addTeam === 'function') {
-          const added = league.addTeam(team);
-          console.log(`DEBUG: Added team to league using addTeam method, league now has ${league.teams.length} teams`);
-        } else {
-          // Manually add the team if the method is not available
-          console.log(`DEBUG: league.addTeam is not a function, adding team manually`);
-          
-          // Initialize teams array if it doesn't exist
-          if (!Array.isArray(league.teams)) {
-            league.teams = [];
-          }
-          
-          // Check if team is already in the league
-          const teamExists = league.teams.some(t => 
-            (typeof t === 'object' && t.id === team.id) || t === team.id
-          );
-          
-          if (teamExists) {
-            console.log(`DEBUG: Team ${team.id} is already in league ${league.id}`);
-          } else {
-            // Check if league is full
-            if (league.teams.length < league.maxTeams) {
-              // Add the full team object to the teams array
-              league.teams.push(team);
-              console.log(`DEBUG: Added team ${team.id} to league ${league.id}, now has ${league.teams.length}/${league.maxTeams} teams`);
-            } else {
-              console.log(`DEBUG: Cannot add team ${team.id} to league ${league.id} because it is full (${league.teams.length}/${league.maxTeams})`);
-            }
-          }
-        }
-        
-        createdTeams.push(team);
-      } catch (error) {
-        console.error(`Error creating team ${i + 1}:`, error);
+        await newTeam.save();
+        console.log(`DEBUG: Saved team ${team.id} to MongoDB`);
+      } catch (err) {
+        console.error(`Error saving team ${team.id} to MongoDB:`, err);
       }
+      
+      createdTeams.push(team);
     }
     
-    // Generate schedule
+    // Generate a schedule for the league
+    const numWeeks = 11; // Standard season length
+    
+    // Clear existing schedule
+    league.schedule = [];
+    
+    // Only generate a schedule if we have at least 2 teams
+    if (league.teams.length >= 2) {
+      // Use the async generateSchedule function
+      await generateSchedule(league, numWeeks);
+      console.log(`DEBUG: Generated schedule with ${league.schedule.length} weeks`);
+    } else {
+      console.log(`DEBUG: Not enough teams to generate a schedule`);
+    }
+    
+    // Update league in MongoDB
     try {
-      console.log(`DEBUG: Generating schedule for ${numWeeks} weeks with ${league.teams.length} teams`);
+      // Make sure maxTeams is a number before saving
+      league.maxTeams = maxTeams;
       
-      if (typeof league.generateSchedule === 'function') {
-        // Use the method if available
-        league.generateSchedule(numWeeks);
+      const leagueDoc = await League.findOne({ id: leagueId });
+      if (leagueDoc) {
+        leagueDoc.teams = league.teams.map(team => team.id);
+        leagueDoc.schedule = league.schedule;
+        leagueDoc.maxTeams = maxTeams;
+        await leagueDoc.save();
       } else {
-        // Manually generate a schedule if the method is not available
-        console.log(`DEBUG: league.generateSchedule is not a function, generating schedule manually`);
-        
-        // Initialize schedule array if it doesn't exist
-        if (!Array.isArray(league.schedule)) {
-          league.schedule = [];
-        }
-        
-        // Simple schedule generation logic
-        const teams = league.teams.map(team => typeof team === 'object' ? team.id : team);
-        
-        // Only generate schedule if we have at least 2 teams
-        if (teams.length >= 2) {
-          for (let week = 1; week <= numWeeks; week++) {
-            const weekMatches = [];
-            
-            // Create matches by pairing teams
-            for (let i = 0; i < teams.length; i += 2) {
-              if (i + 1 < teams.length) {
-                weekMatches.push({
-                  homeTeam: teams[i],
-                  awayTeam: teams[i + 1],
-                  homeScore: 0,
-                  awayScore: 0,
-                  completed: false
-                });
-              }
-            }
-            
-            // Rotate teams for next week to ensure different matchups
-            if (teams.length > 0) {
-              const firstTeam = teams[0];
-              teams.shift();
-              teams.push(firstTeam);
-            }
-            
-            league.schedule.push({
-              week,
-              matches: weekMatches
-            });
-          }
-        }
+        const newLeague = new League({
+          id: league.id,
+          name: league.name,
+          maxTeams: maxTeams,
+          teams: league.teams.map(team => team.id),
+          schedule: league.schedule,
+          currentWeek: league.currentWeek || 1,
+          memberIds: league.memberIds || [],
+          creatorId: league.creatorId,
+          description: league.description || '',
+          isPublic: league.isPublic !== false,
+          regions: league.regions || ['AMERICAS', 'EMEA']
+        });
+        await newLeague.save();
       }
       
-      console.log(`DEBUG: Schedule generated with ${league.schedule ? league.schedule.length : 0} weeks`);
-      
-      // Save the updated league with schedule and teams to the database
-      try {
-        const updatedLeague = await League.findOneAndUpdate(
-          { id: league.id },
-          { 
-            $set: {
-              teams: league.teams.map(team => typeof team === 'object' ? team.id : team),
-              schedule: league.schedule,
-              maxTeams: league.maxTeams,
-              name: league.name,
-              description: league.description || '',
-              isPublic: league.isPublic,
-              regions: league.regions,
-              memberIds: league.memberIds,
-              creatorId: league.creatorId,
-              currentWeek: league.currentWeek || 1,
-              playerPool: league.playerPool
-            }
-          },
-          { upsert: true, new: true }
-        );
-        console.log(`DEBUG: League saved to database with ${updatedLeague.teams.length} teams and ${updatedLeague.schedule.length} weeks in schedule`);
-      } catch (error) {
-        console.error('Error saving league to database:', error);
-        // Continue execution - don't return an error response here
-      }
+      console.log(`DEBUG: Saved league ${leagueId} to MongoDB`);
     } catch (error) {
-      console.error('Error generating schedule:', error);
-      return res.status(500).json({ message: 'Error generating schedule', error: error.message });
+      console.error('Error saving league to database:', error);
+      // Continue anyway to return what we've done so far
     }
     
+    // Return the updated league and created teams
     return res.status(200).json({
-      message: `Successfully added ${createdTeams.length} teams and generated a ${numWeeks}-week schedule`,
-      league: league,
+      message: `Successfully filled league with ${createdTeams.length} teams and generated a ${league.schedule ? league.schedule.length : 0}-week schedule`,
+      league,
       createdTeams
     });
   } catch (error) {
@@ -560,7 +542,6 @@ app.post('/api/draft/pick', async (req, res) => {
             name: team.name,
             owner: team.owner,
             userId: team.userId, // Ensure userId is saved
-            players: team.players,
             leagueId: team.leagueId || league.id, // Ensure leagueId is set
             totalPoints: team.totalPoints,
             weeklyPoints: team.weeklyPoints
@@ -999,8 +980,10 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
         existingTeam.leagueId = team.leagueId;
         existingTeam.userId = team.userId;
         
-        await existingTeam.save();
-        console.log(`DEBUG: Successfully updated team ${team.id} in MongoDB`);
+        await existingTeam.save()
+          .then(() => {
+            console.log(`DEBUG: Updated team ${team.id} in MongoDB`);
+          });
       } else {
         console.log(`DEBUG: Creating new team ${team.id}`);
         const newTeam = new FantasyTeam({
@@ -1012,8 +995,10 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
           players: team.players
         });
         
-        await newTeam.save();
-        console.log(`DEBUG: Successfully created new team ${team.id} in MongoDB`);
+        await newTeam.save()
+          .then(() => {
+            console.log(`DEBUG: Created new team ${team.id} in MongoDB`);
+          });
       }
       
       // Verify MongoDB changes were applied
@@ -1517,7 +1502,7 @@ app.post('/api/leagues/:id/schedule', async (req, res) => {
     return res.status(404).json({ message: 'League not found' });
   }
   
-  const success = league.generateSchedule(weeks || 9);
+  const success = await generateSchedule(league, weeks || 9);
   
   if (!success) {
     return res.status(400).json({ 
@@ -1627,7 +1612,7 @@ app.post('/api/leagues/:id/advance-week', auth, (req, res) => {
 });
 
 // API endpoint to generate a schedule for a league
-app.post('/api/leagues/:id/generate-schedule', auth, (req, res) => {
+app.post('/api/leagues/:id/generate-schedule', auth, async (req, res) => {
   const { id } = req.params;
   const { weeks } = req.body;
   
@@ -1644,7 +1629,7 @@ app.post('/api/leagues/:id/generate-schedule', auth, (req, res) => {
   
   // Generate the schedule
   try {
-    league.generateSchedule(weeks || 9);
+    await generateSchedule(league, weeks || 9);
   } catch (error) {
     return res.status(400).json({
       message: 'Failed to generate schedule',
@@ -3055,6 +3040,155 @@ async function saveLeagueData() {
   return true;
 }
 
+// Helper function to generate a schedule for a league
+async function generateSchedule(league, weeksPerSeason = 9) {
+  console.log(`DEBUG: Generating schedule for league ${league.id} with ${weeksPerSeason} weeks`);
+  
+  if (!league || !Array.isArray(league.teams) || league.teams.length < 2) {
+    console.log(`DEBUG: Cannot generate schedule - league has fewer than 2 teams (${league?.teams?.length || 0})`);
+    return false;
+  }
+  
+  // Initialize or clear the schedule
+  league.schedule = [];
+  
+  // Create a copy of teams array for scheduling
+  const teams = [...league.teams];
+  
+  // If odd number of teams, add a "bye" team
+  if (teams.length % 2 !== 0) {
+    teams.push({ id: 'bye', name: 'BYE' });
+  }
+  
+  const numTeams = teams.length;
+  const matchesPerWeek = Math.floor(numTeams / 2);
+  
+  // Generate weeks
+  for (let week = 1; week <= weeksPerSeason; week++) {
+    league.schedule.push({
+      week,
+      matchups: []
+    });
+  }
+  
+  // Generate round-robin schedule
+  for (let week = 0; week < weeksPerSeason; week++) {
+    const weekSchedule = league.schedule[week];
+    
+    // Generate matchups for this week
+    for (let i = 0; i < matchesPerWeek; i++) {
+      const teamA = teams[i];
+      const teamB = teams[numTeams - 1 - i];
+      
+      // Skip matchups involving the "bye" team
+      if (teamA.id !== 'bye' && teamB.id !== 'bye') {
+        weekSchedule.matchups.push({
+          teamA: teamA.id,
+          teamB: teamB.id,
+          scoreA: 0,
+          scoreB: 0,
+          winner: null
+        });
+      }
+    }
+    
+    // Rotate teams for next week (keep first team fixed, rotate others)
+    const firstTeam = teams[0];
+    const lastTeam = teams[numTeams - 1];
+    for (let i = numTeams - 1; i > 1; i--) {
+      teams[i] = teams[i - 1];
+    }
+    teams[1] = lastTeam;
+  }
+  
+  console.log(`DEBUG: Generated schedule with ${league.schedule.length} weeks and ${league.schedule.reduce((total, week) => total + week.matchups.length, 0)} total matchups`);
+  
+  // Save the schedule to MongoDB
+  try {
+    const leagueDoc = await League.findOne({ id: league.id });
+    if (leagueDoc) {
+      leagueDoc.schedule = league.schedule;
+      await leagueDoc.save();
+      console.log(`DEBUG: Saved schedule for league ${league.id} to MongoDB`);
+    } else {
+      console.log(`DEBUG: League ${league.id} not found in MongoDB, cannot save schedule`);
+    }
+  } catch (error) {
+    console.error(`Error saving schedule for league ${league.id} to MongoDB:`, error);
+  }
+  
+  return true;
+}
+
+// Get league matchups for a specific week
+app.get('/api/leagues/:id/matchups/:week', (req, res) => {
+  console.log(`Getting matchups for league ${req.params.id} week ${req.params.week}`);
+  const { id, week } = req.params;
+  
+  try {
+    // Get the original league from the in-memory store, not the serialized version
+    const originalLeague = leagueService.leagues.find(league => league.id === id);
+    
+    if (!originalLeague) {
+      return res.status(404).json({ message: 'League not found' });
+    }
+    
+    const weekNumber = parseInt(week) || originalLeague.currentWeek || 1;
+    
+    // Check if the league has a schedule
+    if (!originalLeague.schedule || !Array.isArray(originalLeague.schedule) || originalLeague.schedule.length === 0) {
+      console.log(`League ${id} has no schedule. Attempting to find in MongoDB.`);
+      
+      // Try to get the schedule from MongoDB
+      League.findOne({ id: id })
+        .then(leagueDoc => {
+          if (leagueDoc && leagueDoc.schedule && Array.isArray(leagueDoc.schedule) && leagueDoc.schedule.length > 0) {
+            // Found schedule in MongoDB, update the in-memory league
+            console.log(`Found schedule in MongoDB for league ${id}`);
+            originalLeague.schedule = leagueDoc.schedule;
+            
+            // Now get the matchups for the requested week
+            const weekSchedule = originalLeague.schedule.find(w => w.week === weekNumber);
+            const matchups = weekSchedule ? weekSchedule.matchups : [];
+            
+            console.log(`Retrieved ${matchups.length} matchups for league ${id} week ${weekNumber} from MongoDB`);
+            return res.json(matchups);
+          } else {
+            console.log(`No schedule found in MongoDB for league ${id}`);
+            return res.json([]);
+          }
+        })
+        .catch(error => {
+          console.error(`Error getting schedule from MongoDB for league ${id}:`, error);
+          return res.status(500).json({ message: 'Error getting league schedule from database', error: error.message });
+        });
+    } else {
+      // League has a schedule in memory, get matchups for the requested week
+      console.log(`League ${id} has schedule in memory with ${originalLeague.schedule.length} weeks`);
+      
+      // First try to use the getWeekMatchups method if available
+      if (typeof originalLeague.getWeekMatchups === 'function') {
+        const matchups = originalLeague.getWeekMatchups(weekNumber);
+        console.log(`Retrieved ${matchups.length} matchups using getWeekMatchups for league ${id} week ${weekNumber}`);
+        return res.json(matchups);
+      }
+      
+      // Otherwise, get the matchups directly from the schedule
+      const weekSchedule = originalLeague.schedule.find(w => w.week === weekNumber);
+      if (weekSchedule && Array.isArray(weekSchedule.matchups)) {
+        console.log(`Retrieved ${weekSchedule.matchups.length} matchups directly from schedule for league ${id} week ${weekNumber}`);
+        return res.json(weekSchedule.matchups);
+      } else {
+        console.log(`No matchups found for league ${id} week ${weekNumber}`);
+        return res.json([]);
+      }
+    }
+  } catch (error) {
+    console.error(`Error getting matchups for league ${id} week ${week}:`, error);
+    res.status(500).json({ message: 'Error getting league matchups', error: error.message });
+  }
+});
+
 // Start server
 app.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
@@ -3067,10 +3201,51 @@ app.listen(PORT, async () => {
   setInterval(async () => {
     console.log('Auto-saving data...');
     try {
-      await saveLeagueData()
-        .then(() => {
-          console.log(`DEBUG: Saved league data to MongoDB`);
-        });
+      // Save leagues
+      for (const league of leagueService.leagues) {
+        try {
+          await saveLeagueData(league);
+        } catch (error) {
+          console.error(`Error saving league ${league.id}:`, error);
+        }
+      }
+      
+      // Save teams
+      for (const team of teamService.teams) {
+        try {
+          const existingTeam = await FantasyTeam.findOne({ id: team.id });
+          if (existingTeam) {
+            // Update existing team
+            Object.assign(existingTeam, {
+              name: team.name,
+              owner: team.owner,
+              userId: team.userId,
+              leagueId: team.leagueId,
+              players: team.players,
+              totalPoints: team.totalPoints || 0,
+              weeklyPoints: team.weeklyPoints || {}
+            });
+            await existingTeam.save();
+          } else {
+            // Create new team
+            const newTeam = new FantasyTeam({
+              id: team.id,
+              name: team.name,
+              owner: team.owner,
+              userId: team.userId,
+              leagueId: team.leagueId,
+              players: team.players || {},
+              totalPoints: team.totalPoints || 0,
+              weeklyPoints: team.weeklyPoints || {}
+            });
+            await newTeam.save();
+          }
+        } catch (error) {
+          console.error(`Error saving team ${team.id}:`, error);
+        }
+      }
+      
+      console.log('Data saved successfully');
     } catch (error) {
       console.error('Error saving data:', error);
     }

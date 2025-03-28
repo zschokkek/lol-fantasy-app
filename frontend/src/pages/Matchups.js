@@ -127,6 +127,7 @@ const Matchups = () => {
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [matchups, setMatchups] = useState([]);
   const [selectedMatchup, setSelectedMatchup] = useState(null);
+  const [isLoadingMatchups, setIsLoadingMatchups] = useState(false);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
   const navigate = useNavigate();
@@ -134,7 +135,7 @@ const Matchups = () => {
   useEffect(() => {
     const fetchLeague = async () => {
       try {
-        const data = await getLeague(); // Update the API endpoint here
+        const data = await getLeague();
         setLeague(data);
         
         // Set selected week to current week or 1 if not started
@@ -148,17 +149,62 @@ const Matchups = () => {
   }, [getLeague]);
   
   useEffect(() => {
-    if (league) {
+    if (league && league.id) {
       fetchMatchups(league.id, selectedWeek);
     }
   }, [selectedWeek, league]);
   
   const fetchMatchups = async (leagueId, week) => {
+    setIsLoadingMatchups(true);
     try {
-      const data = await getMatchups(week, leagueId);
-      setMatchups(data);
+      console.log(`Fetching matchups for league ${leagueId} week ${week}`);
+      const data = await getMatchups(leagueId, week);
+      
+      if (Array.isArray(data)) {
+        // Process matchups to ensure they have all required fields
+        const processedMatchups = data.map(matchup => {
+          // Ensure both teams exist and have names
+          const homeTeam = league.teams.find(t => t.id === matchup.teamA) || { id: matchup.teamA, name: 'Unknown Team' };
+          const awayTeam = league.teams.find(t => t.id === matchup.teamB) || { id: matchup.teamB, name: 'Unknown Team' };
+          
+          return {
+            id: `matchup_${matchup.teamA}_${matchup.teamB}_${week}`,
+            week: week,
+            homeTeam: homeTeam,
+            awayTeam: awayTeam,
+            homeScore: matchup.scoreA || 0,
+            awayScore: matchup.scoreB || 0,
+            completed: !!matchup.winner, // If winner is set, the matchup is completed
+            winner: matchup.winner,
+            winnerUpdated: !!matchup.winner // If winner is set, it's been updated
+          };
+        });
+        
+        setMatchups(processedMatchups);
+        console.log(`Loaded ${processedMatchups.length} matchups for week ${week}`);
+      } else {
+        console.error('Unexpected matchups data format:', data);
+        setMatchups([]);
+        toast({
+          title: 'Error',
+          description: 'Received invalid matchup data from server',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     } catch (error) {
       console.error(`Error fetching matchups for week ${week}:`, error);
+      setMatchups([]);
+      toast({
+        title: 'Error',
+        description: `Failed to load matchups: ${error.message}`,
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoadingMatchups(false);
     }
   };
   
@@ -289,7 +335,7 @@ const Matchups = () => {
           borderColor="gray.600"
           _hover={{ borderColor: 'yellow.400' }}
         >
-          {Array.from({ length: league.totalWeeks || 14 }, (_, i) => (
+          {league && league.schedule && Array.from({ length: league.schedule.length || 9 }, (_, i) => (
             <option key={i + 1} value={i + 1}>Week {i + 1}</option>
           ))}
         </Select>
@@ -305,7 +351,17 @@ const Matchups = () => {
         </Button>
       </Flex>
       
-      {matchups.length > 0 ? (
+      {isLoadingMatchups ? (
+        <Center h="200px">
+          <Spinner 
+            thickness="4px"
+            speed="0.65s"
+            emptyColor="gray.700"
+            color="yellow.400"
+            size="xl"
+          />
+        </Center>
+      ) : matchups.length > 0 ? (
         <>
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
             {matchups.map(matchup => (
