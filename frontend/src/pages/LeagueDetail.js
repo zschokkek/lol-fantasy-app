@@ -710,12 +710,28 @@ const LeagueDetail = () => {
       onJoinClose();
     } catch (error) {
       console.error('Error joining league:', error);
+      
+      // Display a more user-friendly error message
+      let errorMessage = 'Failed to join league. Please try again.';
+      
+      // Check for specific error messages
+      if (error.message) {
+        if (error.message.includes('already have a team')) {
+          errorMessage = 'You already have a team in this league.';
+        } else if (error.message.includes('League is full')) {
+          errorMessage = 'This league is already full.';
+        } else {
+          // Use the actual error message if available
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: 'Error',
-        description: error.message || 'Failed to join league',
+        description: errorMessage,
         status: 'error',
-        duration: 3000,
-        position: 'top'
+        duration: 5000,
+        isClosable: true,
       });
     }
   };

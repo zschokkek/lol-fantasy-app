@@ -88,26 +88,27 @@ export const ApiProvider = ({ children }) => {
       if (!response.ok) {
         // Try to parse as JSON first
         const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          try {
+        let errorMessage = `Server error: ${response.status}`;
+        
+        try {
+          if (contentType && contentType.includes('application/json')) {
             const errorData = await response.json();
-            throw new Error(errorData.message || `Server error: ${response.status}`);
-          } catch (jsonError) {
-            // If JSON parsing fails, get the text and check if it's HTML
+            errorMessage = errorData.message || errorMessage;
+          } else {
             const errorText = await response.text();
-            if (errorText.includes('<!DOCTYPE') || errorText.includes('<html')) {
-              throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}`);
+            if (errorText && !errorText.includes('<!DOCTYPE') && !errorText.includes('<html')) {
+              errorMessage = `${errorMessage}. ${errorText.substring(0, 100)}`;
             }
-            throw new Error(`Server error: ${response.status}. Response was not valid JSON.`);
           }
-        } else {
-          // Not JSON, get as text
-          const errorText = await response.text();
-          if (errorText.includes('<!DOCTYPE') || errorText.includes('<html')) {
-            throw new Error(`Server returned HTML instead of JSON. Status: ${response.status}`);
-          }
-          throw new Error(`Server error: ${response.status}. ${errorText.substring(0, 100)}`);
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+          // Keep the default error message if parsing fails
         }
+        
+        // Create a custom error with the error message
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        throw error;
       }
       
       // Check for valid JSON content-type

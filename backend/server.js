@@ -421,6 +421,55 @@ app.post('/api/admin/fill-league/:leagueId', auth, async (req, res) => {
   }
 });
 
+// API endpoint to set a schedule for a league
+app.post('/api/leagues/:id/schedule', auth, async (req, res) => {
+  const { id } = req.params;
+  const { weeks } = req.body;
+  
+  console.log(`\n========== SETTING SCHEDULE ==========`);
+  console.log(`League ID: ${id}`);
+  console.log(`Weeks: ${weeks || 9}`);
+  
+  const league = leagueService.getLeagueById(id);
+  
+  if (!league) {
+    console.log(`League ${id} not found`);
+    return res.status(404).json({ message: 'League not found' });
+  }
+  
+  console.log(`League ${id} found with ${league.teams?.length || 0} teams`);
+  
+  if (league.creatorId !== req.user.id && !req.user.isAdmin) {
+    console.log(`User ${req.user.id} not authorized to set schedule for league ${id}`);
+    return res.status(403).json({ message: 'Not authorized to set schedule' });
+  }
+  
+  // Generate the schedule
+  try {
+    console.log(`Calling generateSchedule for league ${id}`);
+    await generateSchedule(league, weeks || 9);
+    console.log(`Schedule generated for league ${id}`);
+    console.log(`League now has ${league.schedule?.length || 0} weeks in schedule`);
+    
+    if (league.schedule && league.schedule.length > 0) {
+      console.log(`Week 1 has ${league.schedule[0]?.matchups?.length || 0} matchups`);
+      if (league.schedule[0]?.matchups?.length > 0) {
+        console.log(`First matchup: ${JSON.stringify(league.schedule[0].matchups[0])}`);
+      }
+    }
+    
+    // Save the updated league data
+    await saveLeagueData();
+    console.log(`League data saved to MongoDB`);
+    
+    // Return the schedule
+    res.json(league.schedule);
+  } catch (error) {
+    console.error(`Failed to generate schedule for league ${id}:`, error);
+    res.status(500).json({ message: 'Failed to generate schedule', error: error.message });
+  }
+});
+
 // Authentication routes
 app.post('/api/users/register', async (req, res) => {
     try {
@@ -881,14 +930,44 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
   try {
     console.log(`User ${userId} is joining league ${id} with team name "${teamName}"`);
     
-    // Get the league - don't resolve teams yet for efficiency
-    const league = leagueService.getLeagueById(id, false);
-    if (!league) {
+    // First check if the league exists in MongoDB
+    const mongoLeague = await League.findOne({ id });
+    if (!mongoLeague) {
+      console.log(`League with ID ${id} not found in MongoDB`);
       return res.status(404).json({ message: 'League not found' });
     }
     
-    // Check if league is full
-    console.log(`League ${league.id} has ${league.teams?.length || 0}/${league.maxTeams} teams`);
+    console.log(`MongoDB League details:
+    - ID: ${mongoLeague.id}
+    - Name: ${mongoLeague.name}
+    - maxTeams: ${mongoLeague.maxTeams} (type: ${typeof mongoLeague.maxTeams})
+    - Current teams: ${mongoLeague.teams?.length || 0}
+    `);
+    
+    // Get the league from the service
+    const league = leagueService.getLeagueById(id, false);
+    if (!league) {
+      return res.status(404).json({ message: 'League not found in service' });
+    }
+    
+    // Ensure maxTeams is correctly set from MongoDB
+    if (mongoLeague.maxTeams && typeof mongoLeague.maxTeams === 'number' && mongoLeague.maxTeams > 0) {
+      league.maxTeams = mongoLeague.maxTeams;
+      console.log(`Updated league.maxTeams to ${league.maxTeams} from MongoDB`);
+    } else if (typeof league.maxTeams !== 'number' || league.maxTeams <= 0) {
+      league.maxTeams = 12; // Default value
+      console.log(`Set default maxTeams value of 12 for league ${league.id}`);
+    }
+    
+    // Log detailed league info
+    console.log(`League details after update:
+    - ID: ${league.id}
+    - Name: ${league.name}
+    - maxTeams: ${league.maxTeams} (type: ${typeof league.maxTeams})
+    - Current teams: ${league.teams?.length || 0}
+    - Teams array is Array: ${Array.isArray(league.teams)}
+    - memberIds: ${league.memberIds?.length || 0}
+    `);
     
     // Ensure teams array is properly initialized
     if (!Array.isArray(league.teams)) {
@@ -896,7 +975,11 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
       league.teams = [];
     }
     
+    // Check if league is full
+    console.log(`League ${league.id} has ${league.teams.length}/${league.maxTeams} teams`);
+    
     if (league.teams.length >= league.maxTeams) {
+      console.log(`ERROR: League ${league.id} is full (${league.teams.length}/${league.maxTeams})`);
       return res.status(400).json({ 
         message: 'League is full', 
         teamCount: league.teams.length,
@@ -907,10 +990,12 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
     // Check if user is already in the league
     const userTeamInLeague = league.teams.find(team => {
       const t = teamService.getTeamById(typeof team === 'object' ? team.id : team);
+      console.log(`Checking team ${typeof team === 'object' ? team.id : team}: userId=${t?.userId}, comparing to ${userId}`);
       return t && t.userId === userId;
     });
     
     if (userTeamInLeague) {
+      console.log(`ERROR: User ${userId} already has a team in league ${id}`);
       return res.status(400).json({ message: 'You already have a team in this league' });
     }
     
@@ -921,16 +1006,15 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
     }
     
     // Create a new team for the user
+    console.log(`Creating new team for user ${userId} with name "${teamName}" in league ${id}`);
     const team = teamService.createTeam(teamName, req.user.username, req.user.id, id);
-    // Removed redundant leagueId assignment since it's now handled in the createTeam method
-    // team.leagueId = id; // Associate team with league
-    
     console.log(`Created new team ${team.id} for user ${userId}`);
     
     // Add to league
     if (typeof league.addTeam === 'function') {
       // Use the method if available
-      league.addTeam(team);
+      const added = league.addTeam(team);
+      console.log(`DEBUG: Added team to league using addTeam method: ${added}`);
     } else {
       // Manually add the team if the method is not available
       console.log(`DEBUG: league.addTeam is not a function, adding team manually`);
@@ -950,8 +1034,8 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
       } else {
         // Check if league is full
         if (league.teams.length < league.maxTeams) {
-          // Add the full team object to the teams array
-          league.teams.push(team);
+          // Add the team ID to the teams array (not the full object)
+          league.teams.push(team.id);
           console.log(`DEBUG: Added team ${team.id} to league ${league.id}, now has ${league.teams.length}/${league.maxTeams} teams`);
         } else {
           console.log(`DEBUG: Cannot add team ${team.id} to league ${league.id} because it is full (${league.teams.length}/${league.maxTeams})`);
@@ -961,6 +1045,7 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
     
     // Save the league data to MongoDB FIRST and await completion
     try {
+      console.log(`Saving league data to MongoDB...`);
       await saveLeagueData();
       console.log(`DEBUG: Successfully saved league data to MongoDB`);
     } catch (saveError) {
@@ -1005,6 +1090,8 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
       const verifyTeam = await FantasyTeam.findOne({ id: team.id });
       if (verifyTeam) {
         console.log(`Verified team ${team.id} exists in MongoDB`);
+      } else {
+        console.log(`WARNING: Could not verify team ${team.id} in MongoDB after save`);
       }
       
       // Get a completely fresh league with teams fully resolved
@@ -1117,8 +1204,8 @@ app.post('/api/teams', auth, async (req, res) => {
       } else {
         // Check if league is full
         if (league.teams.length < league.maxTeams) {
-          // Add the full team object to the teams array
-          league.teams.push(team);
+          // Add the team ID to the teams array (not the full object)
+          league.teams.push(team.id);
           console.log(`DEBUG: Added team ${team.id} to league ${league.id}, now has ${league.teams.length}/${league.maxTeams} teams`);
         } else {
           console.log(`DEBUG: Cannot add team ${team.id} to league ${league.id} because it is full (${league.teams.length}/${league.maxTeams})`);
@@ -1130,60 +1217,6 @@ app.post('/api/teams', auth, async (req, res) => {
       .then(() => {
         console.log(`DEBUG: Saved league data to MongoDB`);
       });
-    
-    // Save teams to MongoDB
-    const existingTeam = await FantasyTeam.findOne({ id: team.id });
-    
-    if (existingTeam) {
-      console.log(`DEBUG: Updating existing team ${team.id}`);
-      existingTeam.name = team.name;
-      existingTeam.owner = team.owner;
-      existingTeam.players = team.players;
-      existingTeam.leagueId = team.leagueId;
-      existingTeam.userId = team.userId;
-      
-      await existingTeam.save()
-        .then(() => {
-          console.log(`DEBUG: Updated team ${team.id} in MongoDB`);
-        });
-    } else {
-      console.log(`DEBUG: Creating new team ${team.id}`);
-      const newTeam = new FantasyTeam({
-        id: team.id,
-        name: team.name,
-        owner: team.owner,
-        userId: req.user.id, // Add the user ID from the auth token
-        leagueId: leagueId, // Use the leagueId from the request body
-        players: team.players
-      });
-      
-      await newTeam.save()
-        .then(() => {
-          console.log(`DEBUG: Created new team ${team.id} in MongoDB`);
-        });
-    }
-    
-    // Update the league in leagueService to ensure it's saved properly
-    const leagueIndex = leagueService.leagues.findIndex(l => l.id === leagueId);
-    if (leagueIndex !== -1) {
-      leagueService.leagues[leagueIndex] = league;
-      console.log(`DEBUG: Updated league ${leagueId} in leagueService`);
-    } else {
-      // If the league doesn't exist in the service, add it
-      leagueService.leagues.push(league);
-      console.log(`DEBUG: Added league ${leagueId} to leagueService`);
-    }
-    
-    // Add the team to teamService
-    const teamIndex = teamService.teams.findIndex(t => t.id === team.id);
-    if (teamIndex !== -1) {
-      teamService.teams[teamIndex] = team;
-      console.log(`DEBUG: Updated team ${team.id} in teamService`);
-    } else {
-      teamService.teams.push(team);
-      console.log(`DEBUG: Added team ${team.id} to teamService`);
-    }
-    
     res.status(201).json(team);
   });
 
@@ -1223,15 +1256,7 @@ app.post('/api/teams/:teamId/players', auth, async (req, res) => {
         existingTeam.players = team.players;
         return existingTeam.save()
           .then(() => {
-            // Update player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: teamId },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Updated player ${playerId} with owner ${teamId}`);
+            console.log(`DEBUG: Updated team ${teamId} in MongoDB`);
           });
       } else {
         console.log(`DEBUG: Creating new team ${teamId}`);
@@ -1252,15 +1277,7 @@ app.post('/api/teams/:teamId/players', auth, async (req, res) => {
         
         return newTeam.save()
           .then(() => {
-            // Update player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: teamId },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Updated player ${playerId} with owner ${teamId}`);
+            console.log(`DEBUG: Created new team ${teamId} in MongoDB`);
           });
       }
     })
@@ -1301,15 +1318,7 @@ app.post('/api/teams/:teamId/remove-player', auth, async (req, res) => {
         existingTeam.players = team.players;
         return existingTeam.save()
           .then(() => {
-            // Clear player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: null },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Cleared owner for player ${playerId}`);
+            console.log(`DEBUG: Updated team ${teamId} in MongoDB`);
           });
       } else {
         console.log(`DEBUG: Creating new team ${teamId}`);
@@ -1321,15 +1330,7 @@ app.post('/api/teams/:teamId/remove-player', auth, async (req, res) => {
         });
         return newTeam.save()
           .then(() => {
-            // Clear player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: null },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Cleared owner for player ${playerId}`);
+            console.log(`DEBUG: Created new team ${teamId} in MongoDB`);
           });
       }
     })
@@ -1464,7 +1465,7 @@ app.post('/api/leagues/:id/calculate/:week', (req, res) => {
     const originalLeague = leagueService.leagues.find(league => league.id === id);
     
     if (!originalLeague) {
-      console.log(`League ${id} not found for score calculation`);
+      console.log(`League ${id} not found`);
       return res.status(404).json({ message: 'League not found' });
     }
     
@@ -1750,15 +1751,7 @@ app.post('/api/teams/:teamId/add-player', auth,(req, res) => {
         existingTeam.players = team.players;
         return existingTeam.save()
           .then(() => {
-            // Update player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: teamId },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Updated player ${playerId} with owner ${teamId}`);
+            console.log(`DEBUG: Updated team ${teamId} in MongoDB`);
           });
       } else {
         console.log(`DEBUG: Creating new team ${teamId}`);
@@ -1779,15 +1772,7 @@ app.post('/api/teams/:teamId/add-player', auth,(req, res) => {
         
         return newTeam.save()
           .then(() => {
-            // Update player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: teamId },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Updated player ${playerId} with owner ${teamId}`);
+            console.log(`DEBUG: Created new team ${teamId} in MongoDB`);
           });
       }
     })
@@ -1828,15 +1813,7 @@ app.post('/api/teams/:teamId/remove-player', auth, async (req, res) => {
         existingTeam.players = team.players;
         return existingTeam.save()
           .then(() => {
-            // Clear player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: null },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Cleared owner for player ${playerId}`);
+            console.log(`DEBUG: Updated team ${teamId} in MongoDB`);
           });
       } else {
         console.log(`DEBUG: Creating new team ${teamId}`);
@@ -1848,15 +1825,7 @@ app.post('/api/teams/:teamId/remove-player', auth, async (req, res) => {
         });
         return newTeam.save()
           .then(() => {
-            // Clear player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: null },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Cleared owner for player ${playerId}`);
+            console.log(`DEBUG: Created new team ${teamId} in MongoDB`);
           });
       }
     })
@@ -2107,30 +2076,7 @@ app.post('/api/trades/:tradeId/accept', auth, async (req, res) => {
       proposingTeamDoc.players = proposingTeam.players;
       proposingTeamDoc.save()
         .then(() => {
-          // Update player ownership in database
-          for (const playerInfo of proposedPlayersCopy) {
-            const playerId = playerInfo.id;
-            Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: receivingTeam.id },
-              { new: true }
-            )
-              .then(() => {
-                console.log(`DEBUG: Updated player ${playerId} with owner ${receivingTeam.id}`);
-              });
-          }
-          
-          for (const playerInfo of requestedPlayersCopy) {
-            const playerId = playerInfo.id;
-            Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: proposingTeam.id },
-              { new: true }
-            )
-              .then(() => {
-                console.log(`DEBUG: Updated player ${playerId} with owner ${proposingTeam.id}`);
-              });
-          }
+          console.log(`DEBUG: Updated team ${proposingTeam.id} in MongoDB`);
         });
     }
     
@@ -2957,33 +2903,19 @@ async function saveLeagueData() {
     // Ensure teams array is properly formatted
     let teamsArray = [];
     if (Array.isArray(league.teams)) {
-      // Keep full team objects instead of just IDs
+      // Store team IDs instead of full team objects
       teamsArray = league.teams
         .filter(team => team !== null && team !== undefined)
         .map(team => {
-          // If it's already an object, return it as is
+          // If it's an object, extract the ID
           if (typeof team === 'object' && team !== null) {
-            // Make sure the team has a leagueId
-            if (!team.leagueId) {
-              team.leagueId = league.id;
-              console.log(`DEBUG: Set leagueId ${league.id} for team ${team.id} during save`);
-            }
-            return team;
+            return team.id;
           }
-          // If it's just an ID, find the team object
-          const teamObj = teamService.getTeamById(team);
-          if (teamObj) {
-            // Make sure the team has a leagueId
-            if (!teamObj.leagueId) {
-              teamObj.leagueId = league.id;
-              console.log(`DEBUG: Set leagueId ${league.id} for team ${teamObj.id} during save`);
-            }
-            return teamObj;
-          }
-          return team; // Fallback to just the ID if team not found
+          // If it's already an ID, return it as is
+          return team;
         });
     }
-    console.log(`DEBUG: League teams before saving: ${teamsArray.length} teams`);
+    console.log(`DEBUG: League teams before saving: ${teamsArray.length} teams (IDs only)`);
     
     // Check if league exists in MongoDB
     const existingLeague = await League.findOne({ id: league.id });
@@ -3042,79 +2974,121 @@ async function saveLeagueData() {
 
 // Helper function to generate a schedule for a league
 async function generateSchedule(league, weeksPerSeason = 9) {
-  console.log(`DEBUG: Generating schedule for league ${league.id} with ${weeksPerSeason} weeks`);
+  console.log(`\n========== GENERATING SCHEDULE ==========`);
+  console.log(`League: ${league.id} (${league.name})`);
+  console.log(`Weeks: ${weeksPerSeason}`);
+  console.log(`Teams: ${league.teams.length}`);
   
-  if (!league || !Array.isArray(league.teams) || league.teams.length < 2) {
-    console.log(`DEBUG: Cannot generate schedule - league has fewer than 2 teams (${league?.teams?.length || 0})`);
-    return false;
+  if (!league.teams || league.teams.length < 2) {
+    console.error('Cannot generate schedule: League needs at least 2 teams');
+    throw new Error('Cannot generate schedule: League needs at least 2 teams');
   }
   
-  // Initialize or clear the schedule
-  league.schedule = [];
+  // Create a map of team IDs to team names for better logging
+  const teamMap = {};
+  league.teams.forEach(team => {
+    teamMap[team.id] = team.name || 'Unknown Team';
+  });
   
-  // Create a copy of teams array for scheduling
-  const teams = [...league.teams];
+  console.log('\nTeams in league:');
+  league.teams.forEach(team => {
+    console.log(`- ${team.id}: ${team.name || 'Unknown Team'}`);
+  });
+  
+  const teams = league.teams.map(team => team.id);
+  
+  // Generate round-robin schedule
+  const schedule = [];
   
   // If odd number of teams, add a "bye" team
   if (teams.length % 2 !== 0) {
-    teams.push({ id: 'bye', name: 'BYE' });
+    teams.push('bye');
+    console.log('\nAdded BYE team for odd number of teams');
   }
   
-  const numTeams = teams.length;
-  const matchesPerWeek = Math.floor(numTeams / 2);
+  const totalRounds = teams.length - 1;
+  const matchesPerRound = teams.length / 2;
   
-  // Generate weeks
-  for (let week = 1; week <= weeksPerSeason; week++) {
-    league.schedule.push({
-      week,
+  console.log(`\nGenerating ${Math.min(totalRounds, weeksPerSeason)} weeks with ${matchesPerRound} matches per week`);
+  
+  // Create rounds
+  for (let round = 0; round < totalRounds && round < weeksPerSeason; round++) {
+    const weekSchedule = {
+      week: round + 1,
       matchups: []
-    });
-  }
-  
-  // Generate round-robin schedule
-  for (let week = 0; week < weeksPerSeason; week++) {
-    const weekSchedule = league.schedule[week];
+    };
     
-    // Generate matchups for this week
-    for (let i = 0; i < matchesPerWeek; i++) {
-      const teamA = teams[i];
-      const teamB = teams[numTeams - 1 - i];
+    console.log(`\n----- WEEK ${round + 1} MATCHUPS -----`);
+    
+    // Create matches for this round
+    for (let match = 0; match < matchesPerRound; match++) {
+      const home = teams[match];
+      const away = teams[teams.length - 1 - match];
       
-      // Skip matchups involving the "bye" team
-      if (teamA.id !== 'bye' && teamB.id !== 'bye') {
-        weekSchedule.matchups.push({
-          teamA: teamA.id,
-          teamB: teamB.id,
+      // Skip matches involving the "bye" team
+      if (home !== 'bye' && away !== 'bye') {
+        const matchup = {
+          teamA: home,
+          teamB: away,
           scoreA: 0,
           scoreB: 0,
           winner: null
-        });
+        };
+        
+        weekSchedule.matchups.push(matchup);
+        
+        // Log the matchup with team names
+        console.log(`Matchup ${match + 1}: ${teamMap[home] || home} vs ${teamMap[away] || away} (${home} vs ${away})`);
+      } else {
+        // Log the bye
+        const teamWithBye = home === 'bye' ? away : home;
+        console.log(`BYE: ${teamMap[teamWithBye] || teamWithBye} (${teamWithBye})`);
       }
     }
     
-    // Rotate teams for next week (keep first team fixed, rotate others)
-    const firstTeam = teams[0];
-    const lastTeam = teams[numTeams - 1];
-    for (let i = numTeams - 1; i > 1; i--) {
-      teams[i] = teams[i - 1];
-    }
-    teams[1] = lastTeam;
+    // Rotate teams for next round (first team stays fixed, others rotate)
+    teams.splice(1, 0, teams.pop());
+    
+    schedule.push(weekSchedule);
   }
   
-  console.log(`DEBUG: Generated schedule with ${league.schedule.length} weeks and ${league.schedule.reduce((total, week) => total + week.matchups.length, 0)} total matchups`);
+  console.log(`\n========== SCHEDULE SUMMARY ==========`);
+  console.log(`Generated ${schedule.length} weeks of matchups`);
   
-  // Save the schedule to MongoDB
+  // Print a summary of all matchups by week
+  schedule.forEach(week => {
+    console.log(`\nWeek ${week.week} (${week.matchups.length} matchups):`);
+    week.matchups.forEach((matchup, idx) => {
+      console.log(`  ${idx + 1}. ${teamMap[matchup.teamA]} vs ${teamMap[matchup.teamB]} (${matchup.teamA} vs ${matchup.teamB})`);
+    });
+  });
+  
+  // Save the schedule to the league
+  league.schedule = schedule;
+  
+  // Save to MongoDB
   try {
     const leagueDoc = await League.findOne({ id: league.id });
     if (leagueDoc) {
-      leagueDoc.schedule = league.schedule;
+      console.log(`\nUpdating league ${league.id} in MongoDB with new schedule`);
+      leagueDoc.schedule = schedule;
       await leagueDoc.save();
-      console.log(`DEBUG: Saved schedule for league ${league.id} to MongoDB`);
+      console.log(`Successfully saved schedule to MongoDB for league ${league.id}`);
+      console.log(`MongoDB league now has ${leagueDoc.schedule.length} weeks in schedule`);
     } else {
-      console.log(`DEBUG: League ${league.id} not found in MongoDB, cannot save schedule`);
+      console.log(`\nLeague ${league.id} not found in MongoDB, creating new document`);
+      const newLeague = new League({
+        id: league.id,
+        name: league.name,
+        schedule: schedule
+      });
+      await newLeague.save();
+      console.log(`Created new league document in MongoDB with schedule`);
     }
+    
+    console.log(`\n========== SCHEDULE GENERATION COMPLETE ==========`);
   } catch (error) {
-    console.error(`Error saving schedule for league ${league.id} to MongoDB:`, error);
+    console.error(`\nError saving schedule for league ${league.id} to MongoDB:`, error);
   }
   
   return true;
@@ -3130,18 +3104,34 @@ app.get('/api/leagues/:id/matchups/:week', (req, res) => {
     const originalLeague = leagueService.leagues.find(league => league.id === id);
     
     if (!originalLeague) {
+      console.log(`League ${id} not found in memory`);
       return res.status(404).json({ message: 'League not found' });
     }
     
+    console.log(`League ${id} found in memory with ${originalLeague.teams?.length || 0} teams`);
+    console.log(`League has schedule: ${!!originalLeague.schedule}`);
+    if (originalLeague.schedule) {
+      console.log(`Schedule has ${originalLeague.schedule.length} weeks`);
+    }
+    
     const weekNumber = parseInt(week) || originalLeague.currentWeek || 1;
+    console.log(`Looking for matchups for week ${weekNumber}`);
     
     // Check if the league has a schedule
     if (!originalLeague.schedule || !Array.isArray(originalLeague.schedule) || originalLeague.schedule.length === 0) {
-      console.log(`League ${id} has no schedule. Attempting to find in MongoDB.`);
+      console.log(`League ${id} has no schedule in memory. Attempting to find in MongoDB.`);
       
       // Try to get the schedule from MongoDB
       League.findOne({ id: id })
         .then(leagueDoc => {
+          console.log(`MongoDB lookup result: ${!!leagueDoc}`);
+          if (leagueDoc) {
+            console.log(`MongoDB league has schedule: ${!!leagueDoc.schedule}`);
+            if (leagueDoc.schedule) {
+              console.log(`MongoDB schedule has ${leagueDoc.schedule.length} weeks`);
+            }
+          }
+          
           if (leagueDoc && leagueDoc.schedule && Array.isArray(leagueDoc.schedule) && leagueDoc.schedule.length > 0) {
             // Found schedule in MongoDB, update the in-memory league
             console.log(`Found schedule in MongoDB for league ${id}`);
@@ -3149,9 +3139,15 @@ app.get('/api/leagues/:id/matchups/:week', (req, res) => {
             
             // Now get the matchups for the requested week
             const weekSchedule = originalLeague.schedule.find(w => w.week === weekNumber);
-            const matchups = weekSchedule ? weekSchedule.matchups : [];
+            console.log(`Week ${weekNumber} found in schedule: ${!!weekSchedule}`);
             
+            const matchups = weekSchedule ? weekSchedule.matchups : [];
             console.log(`Retrieved ${matchups.length} matchups for league ${id} week ${weekNumber} from MongoDB`);
+            
+            if (matchups.length > 0) {
+              console.log(`Sample matchup: ${JSON.stringify(matchups[0])}`);
+            }
+            
             return res.json(matchups);
           } else {
             console.log(`No schedule found in MongoDB for league ${id}`);
@@ -3170,13 +3166,25 @@ app.get('/api/leagues/:id/matchups/:week', (req, res) => {
       if (typeof originalLeague.getWeekMatchups === 'function') {
         const matchups = originalLeague.getWeekMatchups(weekNumber);
         console.log(`Retrieved ${matchups.length} matchups using getWeekMatchups for league ${id} week ${weekNumber}`);
+        
+        if (matchups.length > 0) {
+          console.log(`Sample matchup: ${JSON.stringify(matchups[0])}`);
+        }
+        
         return res.json(matchups);
       }
       
       // Otherwise, get the matchups directly from the schedule
       const weekSchedule = originalLeague.schedule.find(w => w.week === weekNumber);
+      console.log(`Week ${weekNumber} found in schedule: ${!!weekSchedule}`);
+      
       if (weekSchedule && Array.isArray(weekSchedule.matchups)) {
         console.log(`Retrieved ${weekSchedule.matchups.length} matchups directly from schedule for league ${id} week ${weekNumber}`);
+        
+        if (weekSchedule.matchups.length > 0) {
+          console.log(`Sample matchup: ${JSON.stringify(weekSchedule.matchups[0])}`);
+        }
+        
         return res.json(weekSchedule.matchups);
       } else {
         console.log(`No matchups found for league ${id} week ${weekNumber}`);
