@@ -945,42 +945,62 @@ class Player {
      * @param {String} region - "NORTH" or "SOUTH"
      */
     getPlayersByRegion(region) {
-      // Check cache first
-      if (this.cache.byRegion[region] && this.isCacheValid()) {
-        return this.cache.byRegion[region];
+      if (!region) {
+        console.log('WARNING: No region specified for getPlayersByRegion');
+        return [];
       }
       
-      // Define region mappings for the new region names
+      // Normalize region code to uppercase
+      const normalizedRegion = region.toUpperCase();
+      
+      // Check cache first
+      if (this.isCacheValid() && this.cache.byRegion[normalizedRegion]) {
+        return this.cache.byRegion[normalizedRegion];
+      }
+      
+      // Create region mappings for flexibility
       const regionMappings = {
-        'AMERICAS': ['LCS', 'LLA', 'CBLOL', 'NA'],
-        'EMEA': ['LEC', 'LFL', 'LVP', 'EU'],
-        'CHINA': ['LPL'],
-        'KOREA': ['LCK']
+        // New region format
+        'AMERICAS': ['AMERICAS', 'LCS', 'NA', 'NORTH', 'NORTH_AMERICA'],
+        'EMEA': ['EMEA', 'LEC', 'EU', 'EUROPE', 'SOUTH'],
+        'CHINA': ['CHINA', 'LPL'],
+        'KOREA': ['KOREA', 'LCK'],
+        
+        // Legacy region format (for backward compatibility)
+        'LCS': ['AMERICAS', 'LCS', 'NA', 'NORTH', 'NORTH_AMERICA'],
+        'LEC': ['EMEA', 'LEC', 'EU', 'EUROPE', 'SOUTH'],
+        'LPL': ['CHINA', 'LPL'],
+        'LCK': ['KOREA', 'LCK'],
+        
+        // Additional mappings
+        'NORTH': ['AMERICAS', 'LCS', 'NA', 'NORTH', 'NORTH_AMERICA'],
+        'SOUTH': ['EMEA', 'LEC', 'EU', 'EUROPE', 'SOUTH']
       };
       
-      // Cache miss, filter and store in cache
-      const filteredPlayers = this.players.filter(player => {
-        // Normalize region names to handle different formats
-        const playerRegion = player.region?.toUpperCase() || '';
-        const playerHomeLeague = player.homeLeague?.toUpperCase() || '';
-        const targetRegion = region.toUpperCase();
+      // Get the array of equivalent region codes
+      const regionVariants = regionMappings[normalizedRegion] || [normalizedRegion];
+      
+      console.log(`DEBUG: Looking for players in region "${normalizedRegion}" (variants: ${regionVariants.join(', ')})`);
+      
+      // Filter players by region, checking both region and homeLeague properties
+      const result = this.players.filter(player => {
+        // Check if player's region matches any of the region variants
+        const regionMatch = player.region && regionVariants.includes(player.region.toUpperCase());
         
-        // Check if the target region is one of the new region groups
-        if (regionMappings[targetRegion]) {
-          // Check if player's region or homeLeague is in the mapped regions
-          return regionMappings[targetRegion].some(r => 
-            playerRegion === r || playerHomeLeague === r
-          );
-        }
+        // Check if player's homeLeague matches any of the region variants (if homeLeague exists)
+        const homeLeagueMatch = player.homeLeague && regionVariants.includes(player.homeLeague.toUpperCase());
         
-        // For backward compatibility with direct region matching
-        return playerRegion === targetRegion || playerHomeLeague === targetRegion;
+        return regionMatch || homeLeagueMatch;
       });
       
-      this.cache.byRegion[region] = filteredPlayers;
-      this.cache.lastUpdated = Date.now();
+      console.log(`DEBUG: Found ${result.length} players for region "${normalizedRegion}"`);
       
-      return filteredPlayers;
+      // Cache the result
+      if (this.isCacheValid()) {
+        this.cache.byRegion[normalizedRegion] = result;
+      }
+      
+      return result;
     }
 
     /**
@@ -1065,11 +1085,15 @@ class Player {
      * @param {String} name - Team name
      * @param {String} owner - Team owner
      * @param {String} userId - User ID of the team owner
+     * @param {String} leagueId - ID of the league the team belongs to
      */
-    createTeam(name, owner, userId) {
+    createTeam(name, owner, userId, leagueId = null) {
         const id = `team_${Date.now()}`;
         const team = new FantasyTeam(id, name, owner);
         team.userId = userId; // Add this property to track ownership
+        if (leagueId) {
+          team.leagueId = leagueId; // Set the league ID if provided
+        }
         this.teams.push(team);
         return team;
       }
@@ -1087,6 +1111,12 @@ class Player {
           data.owner
         );
         team.userId = data.userId; // Add this property to track ownership
+        
+        // Set the leagueId on the team if it exists in the data
+        if (data.leagueId) {
+          team.leagueId = data.leagueId;
+          console.log(`DEBUG: Set leagueId ${data.leagueId} for team ${team.id}`);
+        }
         
         // Add players to positions
         for (const position of ["TOP", "JUNGLE", "MID", "ADC", "SUPPORT", "FLEX"]) {
@@ -1159,7 +1189,7 @@ class Player {
           id: team.id,
           name: team.name,
           owner: team.owner,
-          userId: team.userId,
+          userId: team.userId, // Preserve user ID for ownership
           leagueId: team.leagueId,
           players: playersData,
           totalPoints: team.totalPoints,
@@ -1221,18 +1251,35 @@ class Player {
      * @param {PlayerService} playerService - Player service for populating player pool
      */
     loadLeagueFromData(leagueData, teamService, playerService) {
-      // Create the league with options
-      const league = this.createLeague(leagueData.name, leagueData.maxTeams, {
-        id: leagueData.id || `league_${Date.now()}`,
-        creatorId: leagueData.creatorId,
-        description: leagueData.description,
-        isPublic: leagueData.isPublic,
-        regions: leagueData.regions || ['AMERICAS', 'EMEA'] // Use new region format as default
-      });
+      console.log(`DEBUG: Loading league ${leagueData.id} - ${leagueData.name}`);
       
-      // Set current week if available
-      if (leagueData.currentWeek) {
-        league.currentWeek = leagueData.currentWeek;
+      // Create a new League instance with the data from the database
+      const league = new League(leagueData.name, leagueData.maxTeams);
+      
+      // Set all properties from the database
+      league.id = leagueData.id;
+      league.creatorId = leagueData.creatorId;
+      league.description = leagueData.description;
+      league.isPublic = leagueData.isPublic;
+      league.regions = leagueData.regions || ['AMERICAS', 'EMEA'];
+      league.currentWeek = leagueData.currentWeek || 1;
+      league.schedule = leagueData.schedule || [];
+      league.standings = leagueData.standings || [];
+      league.playerPool = leagueData.playerPool || [];
+      
+      // Initialize teams array if it doesn't exist
+      if (!Array.isArray(league.teams)) {
+        league.teams = [];
+      }
+      
+      // Add members to league
+      if (leagueData.memberIds) {
+        for (const memberId of leagueData.memberIds) {
+          // Skip null memberIds
+          if (memberId !== null) {
+            league.addMember(memberId);
+          }
+        }
       }
       
       // Add teams to league
@@ -1243,22 +1290,62 @@ class Player {
         console.log(`DEBUG: Loading ${teamIds.length} teams for league ${league.id}`);
         for (const teamId of teamIds) {
           // Handle both team objects and team IDs
-          const teamIdValue = teamId.id || teamId;
+          const teamIdValue = typeof teamId === 'object' ? teamId.id : teamId;
           const team = teamService.getTeamById(teamIdValue);
           if (team) {
-            league.addTeam(team);
+            // Set the leagueId on the team if it's not already set
+            if (!team.leagueId) {
+              team.leagueId = league.id;
+              console.log(`DEBUG: Set leagueId ${league.id} for team ${team.id} during league loading`);
+            }
+            
+            // Add the team to the league
+            if (typeof league.addTeam === 'function') {
+              league.addTeam(team);
+            } else {
+              // Initialize teams array if it doesn't exist
+              if (!Array.isArray(league.teams)) {
+                league.teams = [];
+              }
+              
+              // Check if team is already in the league
+              const teamExists = league.teams.some(t => 
+                (typeof t === 'object' && t.id === team.id) || t === team.id
+              );
+              
+              if (!teamExists) {
+                league.teams.push(team);
+                console.log(`DEBUG: Manually added team ${team.id} to league ${league.id}`);
+              }
+            }
           } else {
             console.log(`DEBUG: Team with ID ${teamIdValue} not found`);
           }
         }
       }
       
-      // Add members to league
-      if (leagueData.memberIds) {
-        for (const memberId of leagueData.memberIds) {
-          // Skip null memberIds
-          if (memberId !== null) {
-            league.addMember(memberId);
+      // IMPORTANT FIX: Also check for teams that have this league's ID set as their leagueId
+      // This ensures teams created through the join league endpoint are properly associated
+      if (teamService && teamService.teams) {
+        const teamsWithLeagueId = teamService.teams.filter(team => team.leagueId === league.id);
+        
+        if (teamsWithLeagueId.length > 0) {
+          console.log(`DEBUG: Found ${teamsWithLeagueId.length} additional teams with leagueId ${league.id}`);
+          
+          for (const team of teamsWithLeagueId) {
+            // Check if team is already in the league
+            const teamExists = league.teams.some(t => 
+              (typeof t === 'object' && t.id === team.id) || t === team.id
+            );
+            
+            if (!teamExists) {
+              if (typeof league.addTeam === 'function') {
+                league.addTeam(team);
+              } else {
+                league.teams.push(team);
+              }
+              console.log(`DEBUG: Added team ${team.id} to league ${league.id} based on team's leagueId`);
+            }
           }
         }
       }
@@ -1275,32 +1362,21 @@ class Player {
           }
         }
         
-        // Remove duplicates by ID
-        const uniquePlayers = [];
-        const uniqueIds = new Set();
-        
-        for (const player of allPlayersForLeague) {
-          if (!uniqueIds.has(player.id)) {
-            uniqueIds.add(player.id);
-            uniquePlayers.push(player);
+        // Remove duplicates by creating a Set of player IDs
+        const uniquePlayerIds = new Set();
+        league.playerPool = allPlayersForLeague.filter(player => {
+          if (uniquePlayerIds.has(player.id)) {
+            return false;
           }
-        }
+          uniquePlayerIds.add(player.id);
+          return true;
+        });
         
-        league.addPlayersToPool(uniquePlayers);
-      }
-      // For backward compatibility
-      else if (leagueData.playerPoolIds) {
-        const players = leagueData.playerPoolIds.map(id => 
-          playerService.getPlayerById(id)
-        ).filter(player => player !== undefined);
-        
-        league.addPlayersToPool(players);
+        console.log(`DEBUG: Populated player pool with ${league.playerPool.length} players from regions ${league.regions.join(', ')}`);
       }
       
-      // Generate schedule if needed
-      if (leagueData.weeksPerSeason) {
-        league.generateSchedule(leagueData.weeksPerSeason);
-      }
+      // Add the league to the service's leagues array
+      this.leagues.push(league);
       
       return league;
     }
@@ -1364,6 +1440,34 @@ class Player {
         return league;
       }
       
+      // If the league doesn't have the addTeam method, we need to create a proper League instance
+      if (typeof league.addTeam !== 'function') {
+        console.log(`League ${id} doesn't have addTeam method, creating a proper League instance`);
+        
+        // Create a new League instance with the same properties
+        const properLeague = new League(league.id, league.name, league.maxTeams);
+        
+        // Copy over all properties from the original league
+        Object.assign(properLeague, {
+          currentWeek: league.currentWeek || 0,
+          isPublic: Boolean(league.isPublic),
+          memberIds: Array.isArray(league.memberIds) ? [...league.memberIds] : [],
+          creatorId: league.creatorId,
+          description: league.description || '',
+          regions: Array.isArray(league.regions) ? [...league.regions] : [],
+          teams: Array.isArray(league.teams) ? [...league.teams] : []
+        });
+        
+        // Replace the league in the leagues array
+        const leagueIndex = this.leagues.findIndex(l => l.id === id);
+        if (leagueIndex !== -1) {
+          this.leagues[leagueIndex] = properLeague;
+        }
+        
+        // Use the proper league instance for the rest of the function
+        return properLeague;
+      }
+      
       // Create a safe, serializable copy of the league
       // Instead of using JSON.parse/stringify which can have issues with circular references,
       // manually create a new object with only the properties we need
@@ -1371,7 +1475,7 @@ class Player {
         id: league.id,
         name: league.name,
         maxTeams: league.maxTeams,
-        currentWeek: league.currentWeek || 0,
+        currentWeek: league.currentWeek || 1,
         isPublic: Boolean(league.isPublic),
         memberIds: Array.isArray(league.memberIds) ? [...league.memberIds] : [],
         creatorId: league.creatorId,
@@ -1380,12 +1484,42 @@ class Player {
         teams: [] // Initialize empty array for teams
       };
       
+      // Get reference to the teamService from the global scope if needed
+      const teamService = global.teamService;
+      
+      // IMPORTANT FIX: Check for teams that have this league's ID set as their leagueId
+      // This ensures teams created through the join league endpoint are properly associated
+      if (teamService && resolveTeams) {
+        // Find all teams that have this league ID as their leagueId
+        const teamsWithLeagueId = teamService.teams.filter(team => team.leagueId === id);
+        
+        if (teamsWithLeagueId.length > 0) {
+          console.log(`DEBUG: Found ${teamsWithLeagueId.length} teams with leagueId ${id}`);
+          
+          // Add these teams to the league if they're not already included
+          for (const team of teamsWithLeagueId) {
+            // Check if team is already in the league
+            const teamExists = league.teams.some(t => 
+              (typeof t === 'object' && t.id === team.id) || t === team.id
+            );
+            
+            if (!teamExists) {
+              // Add to the internal league object
+              if (typeof league.addTeam === 'function') {
+                league.addTeam(team);
+                console.log(`DEBUG: Added team ${team.id} to league ${id} based on team's leagueId`);
+              } else if (Array.isArray(league.teams)) {
+                league.teams.push(team);
+                console.log(`DEBUG: Manually added team ${team.id} to league ${id} based on team's leagueId`);
+              }
+            }
+          }
+        }
+      }
+      
       // Process teams - handle both object references and IDs
       if (Array.isArray(league.teams)) {
         console.log(`Processing ${league.teams.length} teams for league ${id}`);
-        
-        // Get reference to the teamService from the global scope if needed
-        const teamService = global.teamService;
         
         leagueCopy.teams = league.teams.map(team => {
           // If team is already a full object, create a safe copy
@@ -1397,7 +1531,7 @@ class Player {
               leagueId: team.leagueId,
               userId: team.userId, // Preserve user ID for ownership
               totalPoints: team.totalPoints || 0,
-              players: team.players || [], // Include players data
+              players: team.players || {}, // Include players data
             };
           } 
           // If team is just an ID and we need to resolve it
@@ -1411,21 +1545,20 @@ class Player {
                 leagueId: teamObj.leagueId,
                 userId: teamObj.userId, // Preserve user ID for ownership
                 totalPoints: teamObj.totalPoints || 0,
-                players: teamObj.players || [], // Include players data
+                players: teamObj.players || {}, // Include players data
               };
             } else {
-              console.log(`Warning: Team ${team} not found when resolving for league ${id}`);
-              return { id: team, name: 'Team not found', owner: 'Unknown' };
+              console.log(`WARNING: Team with ID ${team} not found`);
+              return null;
             }
-          } 
-          // If team is just an ID and we don't need to resolve it
-          else {
+          } else {
+            // If we're not resolving teams, just keep the ID
             return team;
           }
-        }).filter(team => team !== null && team !== undefined); // Filter out any null/undefined teams
-        
-        console.log(`Processed ${leagueCopy.teams.length} teams for league ${id}`);
+        }).filter(Boolean); // Remove any null entries
       }
+      
+      console.log(`Processed ${leagueCopy.teams.length} teams for league ${id}`);
       
       return leagueCopy;
     }

@@ -306,46 +306,36 @@ app.post('/api/admin/fill-league/:leagueId', auth, async (req, res) => {
         console.log(`DEBUG: Created team ${team.name} with ID ${team.id}`);
         
         // Add to league (using the correct method that handles the team ID)
-        const added = league.addTeam(team);
-        console.log(`DEBUG: Added team to league, league now has ${league.teams.length} teams`);
-        
-        // Save team to database
-        const existingTeam = await FantasyTeam.findOneAndUpdate(
-          { id: team.id },
-          { 
-            $set: {
-              id: team.id,
-              name: team.name,
-              owner: team.owner,
-              players: team.players,
-              leagueId: team.leagueId,
-              totalPoints: team.totalPoints,
-              weeklyPoints: team.weeklyPoints
+        if (typeof league.addTeam === 'function') {
+          const added = league.addTeam(team);
+          console.log(`DEBUG: Added team to league using addTeam method, league now has ${league.teams.length} teams`);
+        } else {
+          // Manually add the team if the method is not available
+          console.log(`DEBUG: league.addTeam is not a function, adding team manually`);
+          
+          // Initialize teams array if it doesn't exist
+          if (!Array.isArray(league.teams)) {
+            league.teams = [];
+          }
+          
+          // Check if team is already in the league
+          const teamExists = league.teams.some(t => 
+            (typeof t === 'object' && t.id === team.id) || t === team.id
+          );
+          
+          if (teamExists) {
+            console.log(`DEBUG: Team ${team.id} is already in league ${league.id}`);
+          } else {
+            // Check if league is full
+            if (league.teams.length < league.maxTeams) {
+              // Add the full team object to the teams array
+              league.teams.push(team);
+              console.log(`DEBUG: Added team ${team.id} to league ${league.id}, now has ${league.teams.length}/${league.maxTeams} teams`);
+            } else {
+              console.log(`DEBUG: Cannot add team ${team.id} to league ${league.id} because it is full (${league.teams.length}/${league.maxTeams})`);
             }
-          },
-          { upsert: true, new: true }
-        );
-        
-        // Save league to database after each team is added
-        const updatedLeague = await League.findOneAndUpdate(
-          { id: league.id },
-          { 
-            $set: {
-              teams: league.teams,
-              maxTeams: league.maxTeams,
-              name: league.name,
-              description: league.description,
-              isPublic: league.isPublic,
-              regions: league.regions,
-              memberIds: league.memberIds,
-              creatorId: league.creatorId,
-              currentWeek: league.currentWeek,
-              playerPool: league.playerPool,
-              standings: league.standings
-            }
-          },
-          { upsert: true, new: true }
-        );
+          }
+        }
         
         createdTeams.push(team);
       } catch (error) {
@@ -356,38 +346,86 @@ app.post('/api/admin/fill-league/:leagueId', auth, async (req, res) => {
     // Generate schedule
     try {
       console.log(`DEBUG: Generating schedule for ${numWeeks} weeks with ${league.teams.length} teams`);
-      league.generateSchedule(numWeeks);
-      console.log(`DEBUG: Schedule generated with ${league.schedule.length} weeks`);
       
-      // Save league to database with the schedule
-      const updatedLeague = await League.findOneAndUpdate(
-        { id: league.id },
-        { 
-          $set: {
-            teams: league.teams,
-            schedule: league.schedule,
-            maxTeams: league.maxTeams,
-            name: league.name,
-            description: league.description,
-            isPublic: league.isPublic,
-            regions: league.regions,
-            memberIds: league.memberIds,
-            creatorId: league.creatorId,
-            currentWeek: league.currentWeek,
-            playerPool: league.playerPool,
-            standings: league.standings
+      if (typeof league.generateSchedule === 'function') {
+        // Use the method if available
+        league.generateSchedule(numWeeks);
+      } else {
+        // Manually generate a schedule if the method is not available
+        console.log(`DEBUG: league.generateSchedule is not a function, generating schedule manually`);
+        
+        // Initialize schedule array if it doesn't exist
+        if (!Array.isArray(league.schedule)) {
+          league.schedule = [];
+        }
+        
+        // Simple schedule generation logic
+        const teams = league.teams.map(team => typeof team === 'object' ? team.id : team);
+        
+        // Only generate schedule if we have at least 2 teams
+        if (teams.length >= 2) {
+          for (let week = 1; week <= numWeeks; week++) {
+            const weekMatches = [];
+            
+            // Create matches by pairing teams
+            for (let i = 0; i < teams.length; i += 2) {
+              if (i + 1 < teams.length) {
+                weekMatches.push({
+                  homeTeam: teams[i],
+                  awayTeam: teams[i + 1],
+                  homeScore: 0,
+                  awayScore: 0,
+                  completed: false
+                });
+              }
+            }
+            
+            // Rotate teams for next week to ensure different matchups
+            if (teams.length > 0) {
+              const firstTeam = teams[0];
+              teams.shift();
+              teams.push(firstTeam);
+            }
+            
+            league.schedule.push({
+              week,
+              matches: weekMatches
+            });
           }
-        },
-        { upsert: true, new: true }
-      );
-      console.log(`DEBUG: Final league saved with schedule`);
+        }
+      }
+      
+      console.log(`DEBUG: Schedule generated with ${league.schedule ? league.schedule.length : 0} weeks`);
+      
+      // Save the updated league with schedule and teams to the database
+      try {
+        const updatedLeague = await League.findOneAndUpdate(
+          { id: league.id },
+          { 
+            $set: {
+              teams: league.teams.map(team => typeof team === 'object' ? team.id : team),
+              schedule: league.schedule,
+              maxTeams: league.maxTeams,
+              name: league.name,
+              description: league.description || '',
+              isPublic: league.isPublic,
+              regions: league.regions,
+              memberIds: league.memberIds,
+              creatorId: league.creatorId,
+              currentWeek: league.currentWeek || 1,
+              playerPool: league.playerPool
+            }
+          },
+          { upsert: true, new: true }
+        );
+        console.log(`DEBUG: League saved to database with ${updatedLeague.teams.length} teams and ${updatedLeague.schedule.length} weeks in schedule`);
+      } catch (error) {
+        console.error('Error saving league to database:', error);
+        // Continue execution - don't return an error response here
+      }
     } catch (error) {
       console.error('Error generating schedule:', error);
-      return res.status(500).json({ 
-        message: 'Error generating schedule',
-        error: error.message,
-        createdTeams
-      });
+      return res.status(500).json({ message: 'Error generating schedule', error: error.message });
     }
     
     return res.status(200).json({
@@ -514,52 +552,45 @@ app.post('/api/draft/pick', async (req, res) => {
       player.drafted = true;
       
       // Save teams to MongoDB
-      const existingTeam = await FantasyTeam.findOne({ id: teamId });
+      const existingTeam = await FantasyTeam.findOneAndUpdate(
+        { id: teamId },
+        { 
+          $set: {
+            id: teamId,
+            name: team.name,
+            owner: team.owner,
+            userId: team.userId, // Ensure userId is saved
+            players: team.players,
+            leagueId: team.leagueId || league.id, // Ensure leagueId is set
+            totalPoints: team.totalPoints,
+            weeklyPoints: team.weeklyPoints
+          }
+        },
+        { upsert: true, new: true }
+      );
       
-      if (existingTeam) {
-        console.log(`DEBUG: Updating existing team ${teamId}`);
-        existingTeam.players = team.players;
-        
-        await existingTeam.save()
-          .then(() => {
-            // Update player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: teamId },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Updated player ${playerId} with owner ${teamId}`);
-          });
-      } else {
-        console.log(`DEBUG: Creating new team ${teamId}`);
-        const newTeam = new FantasyTeam({
-          id: teamId,
-          name: team.name,
-          owner: team.owner,
-          players: team.players
-        });
-        
-        await newTeam.save()
-          .then(() => {
-            // Update player ownership in database
-            return Player.findOneAndUpdate(
-              { id: playerId },
-              { owner: teamId },
-              { new: true }
-            );
-          })
-          .then(() => {
-            console.log(`DEBUG: Updated player ${playerId} with owner ${teamId}`);
-          });
-      }
+      // Save league to database after each team is added
+      const updatedLeague = await League.findOneAndUpdate(
+        { id: league.id },
+        { 
+          $set: {
+            teams: league.teams,
+            maxTeams: league.maxTeams,
+            name: league.name,
+            description: league.description,
+            isPublic: league.isPublic,
+            regions: league.regions,
+            memberIds: league.memberIds,
+            creatorId: league.creatorId,
+            currentWeek: league.currentWeek,
+            playerPool: league.playerPool,
+            standings: league.standings
+          }
+        },
+        { upsert: true, new: true }
+      );
       
-      res.json({
-        message: 'Player successfully drafted',
-        team: team,
-        player: player
-      });
+      createdTeams.push(team);
     } catch (error) {
       console.error(`Error during draft:`, error);
       res.status(500).json({ message: 'Error during draft operation', error: error.message });
@@ -739,16 +770,22 @@ app.get('/api/teams/my-teams', auth, async (req, res) => {
   
   // Enhance teams with league information
   const enhancedTeams = userTeams.map(team => {
+    let leagueInfo = { leagueName: 'Not assigned' };
+    
     if (team.leagueId) {
       const league = leagueService.getLeagueById(team.leagueId);
       if (league) {
-        return {
-          ...team,
-          leagueName: league.name
+        leagueInfo = {
+          leagueName: league.name,
+          leagueId: league.id
         };
       }
     }
-    return team;
+    
+    return {
+      ...team,
+      ...leagueInfo
+    };
   });
   
   res.json(enhancedTeams);
@@ -799,116 +836,51 @@ app.get('/api/leagues/:id', (req, res) => {
     return res.status(404).json({ message: 'League not found' });
   }
   
-  res.json(league);
-});
-
-// Create a new league
-app.post('/api/leagues', auth, async (req, res) => {
-  console.log('DEBUG: /api/leagues POST received', req.body);
-  const { name, maxTeams, description, isPublic, regions } = req.body;
-  
-  if (!name) {
-    console.log('DEBUG: League name is required but was missing');
-    return res.status(400).json({ message: 'League name is required' });
-  }
-  
-  console.log(`DEBUG: Creating league "${name}" with maxTeams=${maxTeams}, regions=[${regions}]`);
-  // Use auth user as creator
-  const league = leagueService.createLeague(name, maxTeams || 12, {
-    creatorId: req.user.id,
-    description,
-    isPublic: isPublic === undefined ? true : isPublic,
-    regions: regions || ['AMERICAS', 'EMEA'] // Default to AMERICAS and EMEA if not specified
-  });
-  
-  console.log(`DEBUG: League created with ID ${league.id}`);
-  // Add creator as first member - make sure we're passing the actual user ID
-  if (req.user && req.user.id) {
-    const added = leagueService.addMemberToLeague(league.id, req.user.id);
-    console.log(`DEBUG: Added creator ${req.user.id} as first member: ${added}`);
-    console.log(`DEBUG: League memberIds after adding creator: [${league.memberIds}]`);
-  } else {
-    console.log(`DEBUG: Warning - Unable to add creator as member, user ID is undefined`);
-  }
-
-  // Initialize league players from the selected regions
-  const allPlayers = playerService.getAllPlayers();
-  
-  if (typeof league.initializePlayersFromRegions === 'function') {
-    // Use the method if available
-    const success = league.initializePlayersFromRegions(allPlayers);
-    console.log(`DEBUG: Initialized league players from regions ${league.regions.join(', ')}: ${success ? 'success' : 'failed'}`);
-  } else {
-    // Manually initialize players if the method is not available
-    console.log(`DEBUG: league.initializePlayersFromRegions is not a function, initializing players manually`);
-    
-    // Define region mappings for the new region names
-    const regionMappings = {
-      'AMERICAS': ['LCS', 'LLA', 'CBLOL', 'NA'],
-      'EMEA': ['LEC', 'LFL', 'LVP', 'EU'],
-      'CHINA': ['LPL'],
-      'KOREA': ['LCK']
-    };
-    
-    // Filter players by the league's regions
-    const regionPlayers = allPlayers.filter(player => {
-      // Check if player's region matches any of the league's regions
-      // or if player's homeLeague matches any of the league's regions
-      return league.regions.some(region => {
-        const regionUpper = region.toUpperCase();
-        const playerRegion = player.region?.toUpperCase() || '';
-        const playerHomeLeague = player.homeLeague?.toUpperCase() || '';
-        
-        // Direct match
-        if (playerRegion === regionUpper || playerHomeLeague === regionUpper) {
-          return true;
-        }
-        
-        // Check if the region is one of the new region groups
-        if (regionMappings[regionUpper]) {
-          // Check if player's region or homeLeague is in the mapped regions
-          return regionMappings[regionUpper].some(r => 
-            playerRegion === r || playerHomeLeague === r
-          );
-        }
-        
-        return false;
-      });
-    });
-    
-    console.log(`Found ${regionPlayers.length} players for regions: ${league.regions.join(', ')}`);
-    
-    // Store player IDs in the league's players array
-    league.players = regionPlayers.map(player => player.id);
-  }
-
-  // Save the league to the database with its initialized players
-  const newLeague = new League({
+  // Convert circular structure to JSON
+  const safeLeague = {
     id: league.id,
     name: league.name,
     maxTeams: league.maxTeams,
     description: league.description || '',
     isPublic: league.isPublic,
-    regions: league.regions,
-    creatorId: req.user.id,
-    memberIds: league.memberIds,
-    players: league.players
-  });
-
-  await newLeague.save()
-    .then(() => {
-      console.log(`DEBUG: Saved league to database with ${league.players.length} players`);
-    });
+    regions: league.regions || [],
+    creatorId: league.creatorId,
+    memberIds: league.memberIds || [],
+    currentWeek: league.currentWeek || 1,
+    teams: Array.isArray(league.teams) ? league.teams.map(team => {
+      // If team is an object, extract just the necessary properties
+      if (typeof team === 'object' && team !== null) {
+        return {
+          id: team.id,
+          name: team.name,
+          owner: team.owner,
+          userId: team.userId,
+          leagueId: team.leagueId || league.id
+        };
+      }
+      // If team is just an ID, return it as is
+      return team;
+    }) : [],
+    schedule: league.schedule || [],
+    standings: league.standings || [],
+    playerPool: Array.isArray(league.playerPool) ? league.playerPool.map(player => {
+      // If player is an object, extract just the necessary properties
+      if (typeof player === 'object' && player !== null) {
+        return {
+          id: player.id,
+          name: player.name,
+          position: player.position,
+          team: player.team,
+          region: player.region,
+          homeLeague: player.homeLeague
+        };
+      }
+      // If player is just an ID, return it as is
+      return player;
+    }) : []
+  };
   
-  // Update user's leagues
-  userService.updateUserLeagues(req.user.id, league.id, 'add');
-  console.log(`DEBUG: Updated user leagues for ${req.user.id}`);
-  
-  // Prompt for team creation by returning a flag in the response
-  res.status(201).json({ 
-    ...league, 
-    promptCreateTeam: true 
-  });
+  res.json(safeLeague);
 });
 
 // Join a league - with enhanced error handling
@@ -968,9 +940,9 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
     }
     
     // Create a new team for the user
-    const team = teamService.createTeam(teamName, req.user.username);
-    team.userId = userId;
-    team.leagueId = id; // Associate team with league
+    const team = teamService.createTeam(teamName, req.user.username, req.user.id, id);
+    // Removed redundant leagueId assignment since it's now handled in the createTeam method
+    // team.leagueId = id; // Associate team with league
     
     console.log(`Created new team ${team.id} for user ${userId}`);
     
@@ -988,13 +960,17 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
       }
       
       // Check if team is already in the league
-      if (league.teams.includes(team.id)) {
+      const teamExists = league.teams.some(t => 
+        (typeof t === 'object' && t.id === team.id) || t === team.id
+      );
+      
+      if (teamExists) {
         console.log(`DEBUG: Team ${team.id} is already in league ${league.id}`);
       } else {
         // Check if league is full
         if (league.teams.length < league.maxTeams) {
-          // Add the team ID to the teams array
-          league.teams.push(team.id);
+          // Add the full team object to the teams array
+          league.teams.push(team);
           console.log(`DEBUG: Added team ${team.id} to league ${league.id}, now has ${league.teams.length}/${league.maxTeams} teams`);
         } else {
           console.log(`DEBUG: Cannot add team ${team.id} to league ${league.id} because it is full (${league.teams.length}/${league.maxTeams})`);
@@ -1002,12 +978,16 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
       }
     }
     
-    await saveLeagueData()
-      .then(() => {
-        console.log(`DEBUG: Saved league data to MongoDB`);
-      });
+    // Save the league data to MongoDB FIRST and await completion
+    try {
+      await saveLeagueData();
+      console.log(`DEBUG: Successfully saved league data to MongoDB`);
+    } catch (saveError) {
+      console.error('Error saving league data:', saveError);
+      return res.status(500).json({ message: 'Error saving league data', error: saveError.message });
+    }
     
-    // Save the team to MongoDB first
+    // Save the team to MongoDB
     try {
       // Create or update team in MongoDB
       const existingTeam = await FantasyTeam.findOne({ id: team.id });
@@ -1017,11 +997,10 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
         existingTeam.owner = team.owner;
         existingTeam.players = team.players;
         existingTeam.leagueId = team.leagueId;
+        existingTeam.userId = team.userId;
         
-        await existingTeam.save()
-          .then(() => {
-            console.log(`DEBUG: Updated team ${team.id}`);
-          });
+        await existingTeam.save();
+        console.log(`DEBUG: Successfully updated team ${team.id} in MongoDB`);
       } else {
         console.log(`DEBUG: Creating new team ${team.id}`);
         const newTeam = new FantasyTeam({
@@ -1029,14 +1008,12 @@ app.post('/api/leagues/:id/join', auth, async (req, res) => {
           name: team.name,
           owner: team.owner,
           userId: req.user.id, // Add the user ID from the auth token
-          leagueId: league.id, // Add the league ID
+          leagueId: id, // Use the leagueId parameter directly
           players: team.players
         });
         
-        await newTeam.save()
-          .then(() => {
-            console.log(`DEBUG: Created new team ${team.id}`);
-          });
+        await newTeam.save();
+        console.log(`DEBUG: Successfully created new team ${team.id} in MongoDB`);
       }
       
       // Verify MongoDB changes were applied
@@ -1124,8 +1101,9 @@ app.post('/api/teams', auth, async (req, res) => {
     // Use the authenticated user's username as the owner
     const owner = req.user.username;
     
-    const team = teamService.createTeam(name, owner, req.user.id);
-    team.leagueId = leagueId; // Associate team with league
+    const team = teamService.createTeam(name, owner, req.user.id, leagueId);
+    // Removed redundant leagueId assignment since it's now handled in the createTeam method
+    // team.leagueId = leagueId; // Associate team with league
     
     // Update user's teams
     userService.updateUserTeams(req.user.id, team.id, 'add');
@@ -1145,13 +1123,17 @@ app.post('/api/teams', auth, async (req, res) => {
       }
       
       // Check if team is already in the league
-      if (league.teams.includes(team.id)) {
+      const teamExists = league.teams.some(t => 
+        (typeof t === 'object' && t.id === team.id) || t === team.id
+      );
+      
+      if (teamExists) {
         console.log(`DEBUG: Team ${team.id} is already in league ${league.id}`);
       } else {
         // Check if league is full
         if (league.teams.length < league.maxTeams) {
-          // Add the team ID to the teams array
-          league.teams.push(team.id);
+          // Add the full team object to the teams array
+          league.teams.push(team);
           console.log(`DEBUG: Added team ${team.id} to league ${league.id}, now has ${league.teams.length}/${league.maxTeams} teams`);
         } else {
           console.log(`DEBUG: Cannot add team ${team.id} to league ${league.id} because it is full (${league.teams.length}/${league.maxTeams})`);
@@ -1173,6 +1155,7 @@ app.post('/api/teams', auth, async (req, res) => {
       existingTeam.owner = team.owner;
       existingTeam.players = team.players;
       existingTeam.leagueId = team.leagueId;
+      existingTeam.userId = team.userId;
       
       await existingTeam.save()
         .then(() => {
@@ -1185,7 +1168,7 @@ app.post('/api/teams', auth, async (req, res) => {
         name: team.name,
         owner: team.owner,
         userId: req.user.id, // Add the user ID from the auth token
-        leagueId: league.id, // Add the league ID
+        leagueId: leagueId, // Use the leagueId from the request body
         players: team.players
       });
       
@@ -1566,7 +1549,7 @@ app.post('/api/leagues/:id/update-stats', async (req, res) => {
       
       if (existingPlayer) {
         console.log(`DEBUG: Updating existing player ${player.id}`);
-        existingPlayer.stats = player.stats;
+        existingPlayer.stats = playerService.getPlayerById(player.id).stats;
         
         await existingPlayer.save()
           .then(() => {
@@ -1576,15 +1559,15 @@ app.post('/api/leagues/:id/update-stats', async (req, res) => {
         console.log(`DEBUG: Creating new player ${player.id}`);
         const newPlayer = new Player({
           id: player.id,
-          name: player.name,
-          position: player.position,
-          team: player.team,
-          region: player.region,
-          homeLeague: player.homeLeague,
-          firstName: player.firstName,
-          lastName: player.lastName,
-          stats: player.stats,
-          fantasyPoints: player.fantasyPoints
+          name: playerService.getPlayerById(player.id).name,
+          position: playerService.getPlayerById(player.id).position,
+          team: playerService.getPlayerById(player.id).team,
+          region: playerService.getPlayerById(player.id).region,
+          homeLeague: playerService.getPlayerById(player.id).homeLeague,
+          firstName: playerService.getPlayerById(player.id).firstName,
+          lastName: playerService.getPlayerById(player.id).lastName,
+          stats: playerService.getPlayerById(player.id).stats,
+          fantasyPoints: playerService.getPlayerById(player.id).fantasyPoints
         });
         await newPlayer.save()
           .then(() => {
@@ -2858,6 +2841,116 @@ app.post('/api/players/:id/update-image', auth, async (req, res) => {
   }
 });
 
+// Create a new league
+app.post('/api/leagues', auth, async (req, res) => {
+  console.log('DEBUG: /api/leagues POST received', req.body);
+  const { name, maxTeams, description, isPublic, regions } = req.body;
+  
+  if (!name) {
+    console.log('DEBUG: League name is required but was missing');
+    return res.status(400).json({ message: 'League name is required' });
+  }
+  
+  console.log(`DEBUG: Creating league "${name}" with maxTeams=${maxTeams}, regions=[${regions}]`);
+  // Use auth user as creator
+  const league = leagueService.createLeague(name, maxTeams || 12, {
+    creatorId: req.user.id,
+    description,
+    isPublic: isPublic === undefined ? true : isPublic,
+    regions: regions || ['AMERICAS', 'EMEA'] // Default to AMERICAS and EMEA if not specified
+  });
+  
+  console.log(`DEBUG: League created with ID ${league.id}`);
+  // Add creator as first member - make sure we're passing the actual user ID
+  if (req.user && req.user.id) {
+    const added = leagueService.addMemberToLeague(league.id, req.user.id);
+    console.log(`DEBUG: Added creator ${req.user.id} as first member: ${added}`);
+    console.log(`DEBUG: League memberIds after adding creator: [${league.memberIds}]`);
+  } else {
+    console.log(`DEBUG: Warning - Unable to add creator as member, user ID is undefined`);
+  }
+
+  // Initialize league players from the selected regions
+  const allPlayers = playerService.getAllPlayers();
+  
+  if (typeof league.initializePlayersFromRegions === 'function') {
+    // Use the method if available
+    const success = league.initializePlayersFromRegions(allPlayers);
+    console.log(`DEBUG: Initialized league players from regions ${league.regions.join(', ')}: ${success ? 'success' : 'failed'}`);
+  } else {
+    // Manually initialize players if the method is not available
+    console.log(`DEBUG: league.initializePlayersFromRegions is not a function, initializing players manually`);
+    
+    // Define region mappings for the new region names
+    const regionMappings = {
+      'AMERICAS': ['LCS', 'LLA', 'CBLOL', 'NA'],
+      'EMEA': ['LEC', 'LFL', 'LVP', 'EU'],
+      'CHINA': ['LPL'],
+      'KOREA': ['LCK']
+    };
+    
+    // Filter players by the league's regions
+    const regionPlayers = allPlayers.filter(player => {
+      // Check if player's region matches any of the league's regions
+      // or if player's homeLeague matches any of the league's regions
+      return league.regions.some(region => {
+        const regionUpper = region.toUpperCase();
+        const playerRegion = player.region?.toUpperCase() || '';
+        const playerHomeLeague = player.homeLeague?.toUpperCase() || '';
+        
+        // Direct match
+        if (playerRegion === regionUpper || playerHomeLeague === regionUpper) {
+          return true;
+        }
+        
+        // Check if the region is one of the new region groups
+        if (regionMappings[regionUpper]) {
+          // Check if player's region or homeLeague is in the mapped regions
+          return regionMappings[regionUpper].some(r => 
+            playerRegion === r || playerHomeLeague === r
+          );
+        }
+        
+        return false;
+      });
+    });
+    
+    console.log(`Found ${regionPlayers.length} players for regions: ${league.regions.join(', ')}`);
+    
+    // Store player IDs in the league's players array
+    league.players = regionPlayers.map(player => player.id);
+  }
+
+  // Save the league to the database with its initialized players
+  const newLeague = new League({
+    id: league.id,
+    name: league.name,
+    maxTeams: league.maxTeams,
+    description: league.description || '',
+    isPublic: league.isPublic,
+    regions: league.regions,
+    creatorId: req.user.id,
+    memberIds: league.memberIds,
+    players: league.players,
+    teams: league.teams || [] // Ensure teams are saved
+  });
+
+  await newLeague.save()
+    .then(() => {
+      console.log(`DEBUG: Saved league to database with ${league.players.length} players`);
+    });
+  
+  // Update user's leagues
+  userService.updateUserLeagues(req.user.id, league.id, 'add');
+  console.log(`DEBUG: Updated user leagues for ${req.user.id}`);
+  
+  // Prompt for team creation by returning a flag in the response
+  res.status(201).json({ 
+    ...league, 
+    promptCreateTeam: true 
+  });
+});
+
 // Helper function to save league data
 async function saveLeagueData() {
   console.log('DEBUG: Starting saveLeagueData function');
@@ -2879,10 +2972,33 @@ async function saveLeagueData() {
     // Ensure teams array is properly formatted
     let teamsArray = [];
     if (Array.isArray(league.teams)) {
-      teamsArray = league.teams.filter(team => team !== null && team !== undefined)
-        .map(team => typeof team === 'object' ? team.id : team);
+      // Keep full team objects instead of just IDs
+      teamsArray = league.teams
+        .filter(team => team !== null && team !== undefined)
+        .map(team => {
+          // If it's already an object, return it as is
+          if (typeof team === 'object' && team !== null) {
+            // Make sure the team has a leagueId
+            if (!team.leagueId) {
+              team.leagueId = league.id;
+              console.log(`DEBUG: Set leagueId ${league.id} for team ${team.id} during save`);
+            }
+            return team;
+          }
+          // If it's just an ID, find the team object
+          const teamObj = teamService.getTeamById(team);
+          if (teamObj) {
+            // Make sure the team has a leagueId
+            if (!teamObj.leagueId) {
+              teamObj.leagueId = league.id;
+              console.log(`DEBUG: Set leagueId ${league.id} for team ${teamObj.id} during save`);
+            }
+            return teamObj;
+          }
+          return team; // Fallback to just the ID if team not found
+        });
     }
-    console.log(`DEBUG: League teams before saving: [${teamsArray}]`);
+    console.log(`DEBUG: League teams before saving: ${teamsArray.length} teams`);
     
     // Check if league exists in MongoDB
     const existingLeague = await League.findOne({ id: league.id });
@@ -2933,10 +3049,10 @@ async function saveLeagueData() {
       await newLeague.save();
       console.log(`DEBUG: Saved new league ${league.id} with teams: [${newLeague.teams}]`);
     }
-    
-    console.log(`DEBUG: Saved ${allLeagues.length} leagues to MongoDB`);
-    return true;
   }
+  
+  console.log(`DEBUG: Saved ${allLeagues.length} leagues to MongoDB`);
+  return true;
 }
 
 // Start server
