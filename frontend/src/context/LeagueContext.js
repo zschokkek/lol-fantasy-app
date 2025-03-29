@@ -12,12 +12,35 @@ export const LeagueProvider = ({ children }) => {
   const api = useApi();
   const { isAuthenticated } = useAuth();
 
-  // Load user leagues on mount
+  // Reset league state
+  const resetLeagueState = () => {
+    console.log('Resetting league state');
+    setSelectedLeague(null);
+    setUserLeagues([]);
+    localStorage.removeItem('selectedLeagueId');
+  };
+
+  // Listen for auth reset events
+  useEffect(() => {
+    const handleCompleteReset = () => {
+      console.log('LeagueContext: Received complete reset event');
+      resetLeagueState();
+    };
+    
+    window.addEventListener('auth:completeReset', handleCompleteReset);
+    
+    return () => {
+      window.removeEventListener('auth:completeReset', handleCompleteReset);
+    };
+  }, []);
+
+  // Load user leagues on mount or when authentication changes
   useEffect(() => {
     const loadLeagues = async () => {
       // Only attempt to load leagues if the user is authenticated
       if (!isAuthenticated) {
         setLoading(false);
+        resetLeagueState();
         return;
       }
       
@@ -29,10 +52,18 @@ export const LeagueProvider = ({ children }) => {
         // Check for stored selected league
         const storedLeagueId = localStorage.getItem('selectedLeagueId');
         if (storedLeagueId && leagues.length > 0) {
-          const league = leagues.find(l => l._id === storedLeagueId);
+          const league = leagues.find(l => l._id === storedLeagueId || l.id === storedLeagueId);
           if (league) {
             setSelectedLeague(league);
+          } else if (leagues.length > 0) {
+            // If stored league not found but leagues exist, select the first one
+            setSelectedLeague(leagues[0]);
+            localStorage.setItem('selectedLeagueId', leagues[0]._id || leagues[0].id);
           }
+        } else if (leagues.length > 0) {
+          // If no stored league but leagues exist, select the first one
+          setSelectedLeague(leagues[0]);
+          localStorage.setItem('selectedLeagueId', leagues[0]._id || leagues[0].id);
         }
         setLoading(false);
       } catch (error) {
@@ -48,7 +79,7 @@ export const LeagueProvider = ({ children }) => {
   const selectLeague = (league) => {
     setSelectedLeague(league);
     if (league) {
-      localStorage.setItem('selectedLeagueId', league._id);
+      localStorage.setItem('selectedLeagueId', league._id || league.id);
     } else {
       localStorage.removeItem('selectedLeagueId');
     }

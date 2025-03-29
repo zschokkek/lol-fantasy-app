@@ -425,11 +425,6 @@ app.post('/api/admin/fill-league/:leagueId', auth, async (req, res) => {
 app.post('/api/leagues/:id/schedule', auth, async (req, res) => {
   const { id } = req.params;
   const { weeks } = req.body;
-  
-  console.log(`\n========== SETTING SCHEDULE ==========`);
-  console.log(`League ID: ${id}`);
-  console.log(`Weeks: ${weeks || 9}`);
-  
   const league = leagueService.getLeagueById(id);
   
   if (!league) {
@@ -715,7 +710,7 @@ app.post('/api/players/:id/update', async (req, res) => {
     }
     
     // Save updated player data
-    const existingPlayer = await Player.findOne({ id });
+    const existingPlayer = await Player.findOne({ id: playerService.getPlayerById(id).id });
     
     if (existingPlayer) {
       console.log(`DEBUG: Updating existing player ${id}`);
@@ -728,7 +723,7 @@ app.post('/api/players/:id/update', async (req, res) => {
     } else {
       console.log(`DEBUG: Creating new player ${id}`);
       const newPlayer = new Player({
-        id,
+        id: playerService.getPlayerById(id).id,
         name: playerService.getPlayerById(id).name,
         position: playerService.getPlayerById(id).position,
         team: playerService.getPlayerById(id).team,
@@ -796,29 +791,52 @@ app.get('/api/teams', (req, res) => {
 
 // Get user's teams
 app.get('/api/teams/my-teams', auth, async (req, res) => {
-  const userTeams = teamService.getTeamsByUserId(req.user.id);
+  console.log('Fetching teams for user:', req.user.id);
   
-  // Enhance teams with league information
-  const enhancedTeams = userTeams.map(team => {
-    let leagueInfo = { leagueName: 'Not assigned' };
+  try {
+    const userTeams = teamService.getTeamsByUserId(req.user.id);
+    console.log(`Found ${userTeams.length} teams for user ${req.user.id}`);
     
-    if (team.leagueId) {
-      const league = leagueService.getLeagueById(team.leagueId);
-      if (league) {
-        leagueInfo = {
-          leagueName: league.name,
-          leagueId: league.id
-        };
+    // Enhance teams with league information
+    const enhancedTeams = userTeams.map(team => {
+      let leagueInfo = { leagueName: 'Not assigned', leagueId: null };
+      
+      if (team.leagueId) {
+        try {
+          const league = leagueService.getLeagueById(team.leagueId);
+          if (league) {
+            leagueInfo = {
+              leagueName: league.name,
+              leagueId: league.id
+            };
+          } else {
+            console.log(`League ${team.leagueId} not found for team ${team.id}`);
+          }
+        } catch (error) {
+          console.error(`Error fetching league ${team.leagueId} for team ${team.id}:`, error);
+        }
       }
-    }
+      
+      // Ensure team has players object and totalPoints
+      if (!team.players) {
+        team.players = {};
+      }
+      
+      if (team.totalPoints === undefined) {
+        team.totalPoints = 0;
+      }
+      
+      return {
+        ...team,
+        ...leagueInfo
+      };
+    });
     
-    return {
-      ...team,
-      ...leagueInfo
-    };
-  });
-  
-  res.json(enhancedTeams);
+    res.json(enhancedTeams);
+  } catch (error) {
+    console.error('Error fetching user teams:', error);
+    res.status(500).json({ message: 'Error fetching teams', error: error.message });
+  }
 });
 
 // Get team by ID
@@ -840,9 +858,24 @@ app.get('/api/leagues', (req, res) => {
 });
 
 // Get user's leagues
-app.get('/api/leagues/user', auth, async (req, res) => {
-  const userLeagues = await leagueService.getLeaguesByUserId(req.user.id);
-  res.json(userLeagues);
+app.get('/api/leagues/my-leagues', auth, async (req, res) => {
+  console.log('Fetching leagues for user:', req.user.id);
+  
+  try {
+    // Get all leagues
+    const allLeagues = leagueService.getAllLeagues();
+    
+    // Filter leagues where user is a member
+    const userLeagues = allLeagues.filter(league => {
+      return league.memberIds && league.memberIds.includes(req.user.id);
+    });
+    
+    console.log(`Found ${userLeagues.length} leagues for user ${req.user.id}`);
+    res.json(userLeagues);
+  } catch (error) {
+    console.error('Error fetching user leagues:', error);
+    res.status(500).json({ message: 'Error fetching leagues', error: error.message });
+  }
 });
 
 // Get league by ID

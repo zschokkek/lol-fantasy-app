@@ -75,11 +75,11 @@ const TeamCard = ({ team }) => {
             <Text 
               flex="1" 
               ml={3} 
-              fontWeight={team.players[position] ? 'medium' : 'normal'} 
-              color={team.players[position] ? 'white' : 'gray.400'}
+              fontWeight={team.players && team.players[position] ? 'medium' : 'normal'} 
+              color={team.players && team.players[position] ? 'white' : 'gray.400'}
               isTruncated
             >
-              {team.players[position]?.name || 'Empty'}
+              {team.players && team.players[position]?.name || 'Empty'}
             </Text>
           </Flex>
         ))}
@@ -87,10 +87,10 @@ const TeamCard = ({ team }) => {
       
       <Flex justify="space-between" mt={4} pt={4} borderTopWidth={1} borderColor="gray.600">
         <Text fontSize="sm" color="gray.400">
-          Bench Players: {team.players.BENCH?.length || 0}
+          Bench Players: {team.players && team.players.BENCH?.length || 0}
         </Text>
         <Text fontWeight="bold" color="yellow.300" fontSize="lg">
-          {team.totalPoints.toFixed(1)} pts
+          {(team.totalPoints || 0).toFixed(1)} pts
         </Text>
       </Flex>
       </Box>
@@ -103,23 +103,26 @@ const Teams = () => {
   const [teams, setTeams] = useState([]);
   const navigate = useNavigate();
   
+  // Handle back button click
+  const handleBack = () => {
+    navigate('/leagues');
+  };
+  
+  // Simple fetch using the API context
   useEffect(() => {
     const fetchTeams = async () => {
       try {
+        console.log('TEAMS PAGE: Fetching teams');
         const data = await getMyTeams();
-        setTeams(data);
-      } catch (error) {
-        console.error('Error fetching teams:', error);
+        console.log('TEAMS PAGE: Received teams:', data);
+        setTeams(data || []);
+      } catch (err) {
+        console.error('TEAMS PAGE: Error fetching teams:', err);
       }
     };
     
     fetchTeams();
   }, [getMyTeams]);
-  
-  // Handle back button click
-  const handleBack = () => {
-    navigate('/leagues');
-  };
   
   if (loading && teams.length === 0) {
     return (
@@ -135,7 +138,7 @@ const Teams = () => {
     );
   }
   
-  if (error) {
+  if (error && teams.length === 0) {
     return (
       <Box p={6} bg="gray.800" rounded="md" borderWidth={1} borderColor="red.500">
         <Heading size="md" color="red.400" mb={2}>Error Loading Teams</Heading>

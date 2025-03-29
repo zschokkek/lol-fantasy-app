@@ -56,8 +56,51 @@ const Navbar = () => {
   const navigate = useNavigate();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [scrolled, setScrolled] = useState(false);
+  const [key, setKey] = useState(0); // Force re-render key
   
   const isMobile = useBreakpointValue({ base: true, md: false });
+  
+  // Force re-render when user changes
+  useEffect(() => {
+    console.log('NAVBAR: User changed, forcing re-render');
+    if (user) {
+      console.log('NAVBAR: Current user in navbar:', {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      });
+      // Force component to re-render completely
+      setKey(prevKey => prevKey + 1);
+    } else {
+      console.log('NAVBAR: No user data in navbar');
+    }
+  }, [user]);
+  
+  // Log user information whenever it changes
+  useEffect(() => {
+    if (user) {
+      console.log('NAVBAR: Current user displayed:', {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isAuthenticated
+      });
+    } else {
+      console.log('NAVBAR: No user data available, isAuthenticated:', isAuthenticated);
+    }
+  }, [user, isAuthenticated]);
+  
+  // Log selected league information
+  useEffect(() => {
+    if (selectedLeague) {
+      console.log('NAVBAR: Selected league:', {
+        id: selectedLeague.id,
+        name: selectedLeague.name
+      });
+    } else {
+      console.log('NAVBAR: No league selected');
+    }
+  }, [selectedLeague]);
   
   useEffect(() => {
     const handleScroll = () => {
@@ -73,6 +116,7 @@ const Navbar = () => {
   }, []);
   
   const handleLogout = () => {
+    console.log('NAVBAR: Logout initiated for user:', user ? user.username : 'unknown');
     logout();
     navigate('/login');
     if (isOpen) onClose();
@@ -104,6 +148,7 @@ const Navbar = () => {
       backdropFilter={scrolled ? "blur(10px)" : "none"}
       boxShadow={scrolled ? "md" : "none"}
       transition="all 0.2s ease-in-out"
+      key={key} // Add key prop to force re-render
     >
       <Flex
         alignItems="center"

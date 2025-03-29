@@ -1,6 +1,6 @@
 // frontend/src/App.js
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ChakraProvider, Box } from '@chakra-ui/react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -21,9 +21,43 @@ import Friends from './pages/Friends';
 import Conversation from './pages/Conversation';
 import ProtectedRoute from './components/ProtectedRoute';
 import LeagueRequiredRoute from './components/LeagueRequiredRoute';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ApiProvider } from './context/ApiContext';
 import { LeagueProvider } from './context/LeagueContext';
+
+// Navigation listener component to clear caches on route changes
+const NavigationListener = () => {
+  const location = useLocation();
+  const { user, isAuthenticated } = useAuth();
+  
+  // Log authentication state on every route change
+  useEffect(() => {
+    console.log('APP: Route changed to:', location.pathname);
+    console.log('APP: Authentication status:', isAuthenticated);
+    
+    if (user) {
+      console.log('APP: Current authenticated user:', {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      });
+    } else {
+      console.log('APP: No user data available');
+    }
+    
+    // Dispatch cache clear event when route changes
+    console.log('APP: Dispatching route:change event');
+    window.dispatchEvent(new CustomEvent('route:change', { 
+      detail: { 
+        path: location.pathname,
+        user: user ? { id: user.id, username: user.username } : null,
+        isAuthenticated
+      } 
+    }));
+  }, [location.pathname, user, isAuthenticated]);
+  
+  return null;
+};
 
 function App() {
   return (
@@ -34,6 +68,7 @@ function App() {
             <Router>
               <Box minH="100vh" bg="gray.900" color="white" overflowX="hidden" overscrollBehavior="none">
                 <Navbar />
+                <NavigationListener />
                 <Box 
                   maxW="container.xl" 
                   mx="auto" 

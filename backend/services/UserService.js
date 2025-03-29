@@ -68,23 +68,27 @@ class UserService {
       throw new Error('Username or email already exists');
     }
     
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-    console.log("Registration - Generated hash:", passwordHash);
+    console.log("USERSERVICE: Registration started for user:", username);
     
     // Create new user with Mongoose model
+    // Note: We directly set passwordHash to the plain password
+    // The User model's pre-save hook will handle the hashing
     const newUser = new User({
       id: uuidv4(),
       username,
       email,
-      passwordHash,
+      passwordHash: password, // This will be hashed by the pre-save hook
       teams: [],
       leagues: [],
       isAdmin: await User.countDocuments() === 0 // First user is admin
     });
     
+    console.log("USERSERVICE: Created user object, saving to database");
+    
     // Save to MongoDB
     await newUser.save();
+    
+    console.log("USERSERVICE: User saved to MongoDB successfully");
     
     // Also keep in memory for backward compatibility
     this.users.push(newUser);

@@ -39,7 +39,21 @@ const Feature = ({ icon, title, text }) => {
 };
 
 const Home = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  
+  // Log user information on the Home page
+  React.useEffect(() => {
+    console.log('HOME PAGE: Authentication status:', isAuthenticated);
+    if (user) {
+      console.log('HOME PAGE: Current user displayed:', {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      });
+    } else {
+      console.log('HOME PAGE: No user data available');
+    }
+  }, [user, isAuthenticated]);
   
   return (
     <Box>

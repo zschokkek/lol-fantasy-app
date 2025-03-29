@@ -350,25 +350,47 @@ const Leagues = () => {
   const [newLeagueId, setNewLeagueId] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // Force refresh when user changes
+  useEffect(() => {
+    console.log('LEAGUES PAGE: User changed, refreshing leagues data');
+    if (user) {
+      console.log('LEAGUES PAGE: Current user:', {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      });
+    } else {
+      console.log('LEAGUES PAGE: No user data available');
+    }
+    fetchLeagues();
+  }, [user, getLeagues, getUserLeagues]);
+
+  // Regular refresh based on refresh trigger
   useEffect(() => {
     fetchLeagues();
   }, [refreshTrigger]);
 
   const fetchLeagues = async () => {
     try {
-      console.log('Fetching leagues...');
+      console.log('LEAGUES PAGE: Fetching leagues...');
       setLoading(true);
+      
+      // Clear existing leagues first to avoid showing stale data
+      setLeagues([]);
+      setUserLeagues([]);
+      
       const allLeagues = await getLeagues();
-      console.log('All leagues:', allLeagues);
+      console.log('LEAGUES PAGE: All leagues:', allLeagues);
       setLeagues(allLeagues);
       
       if (user && user.id) {
+        console.log('LEAGUES PAGE: Fetching leagues for user:', user.username);
         const myLeagues = await getUserLeagues();
-        console.log('User leagues:', myLeagues);
+        console.log('LEAGUES PAGE: User leagues:', myLeagues);
         setUserLeagues(myLeagues);
       }
     } catch (error) {
-      console.error('Error fetching leagues:', error);
+      console.error('LEAGUES PAGE: Error fetching leagues:', error);
     } finally {
       setLoading(false);
     }
@@ -422,7 +444,7 @@ const Leagues = () => {
   const userMemberLeagues = leagues.filter(league => {
     // Filter out leagues where user is a member (and handle null values)
     if (!league.memberIds) return false;
-    return league.memberIds.some(id => id === user?.id);
+    return league.memberIds.includes(user?.id);
   });
   
   const publicLeagues = leagues.filter(league => {
@@ -432,9 +454,12 @@ const Leagues = () => {
     // If memberIds is missing, consider it not a member
     if (!league.memberIds) return true;
     
-    // Filter out null values and check if user is not in the memberIds list
-    return !league.memberIds.some(id => id === user?.id);
+    // Filter out leagues where the user is already a member
+    return !league.memberIds.includes(user?.id);
   });
+
+  console.log('LEAGUES PAGE: User member leagues:', userMemberLeagues);
+  console.log('LEAGUES PAGE: Public leagues:', publicLeagues);
 
   // Loading state
   if (loading) {

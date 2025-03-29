@@ -12,7 +12,7 @@ const PLAYER_CACHE_TIME = 15 * 60 * 1000; // 15 minutes for player data
 export const ApiProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   
   // Cache storage using useRef to persist between renders
   const cacheRef = useRef({});
@@ -40,9 +40,28 @@ export const ApiProvider = ({ children }) => {
   };
   
   const clearCache = () => {
-    console.log('Clearing API cache');
+    console.log('API CONTEXT: Clearing API cache');
     cacheRef.current = {};
   };
+  
+  // Force a complete reset of all API data
+  const forceCompleteReset = () => {
+    console.log('API CONTEXT: Performing complete reset');
+    clearCache();
+  };
+  
+  useEffect(() => {
+    console.log('API CONTEXT: User changed, clearing all caches');
+    if (user) {
+      console.log('API CONTEXT: New user detected:', {
+        id: user.id,
+        username: user.username
+      });
+    } else {
+      console.log('API CONTEXT: No user detected, clearing cache anyway');
+    }
+    clearCache();
+  }, [user]);
   
   useEffect(() => {
     // Make clearCache available globally
@@ -50,30 +69,56 @@ export const ApiProvider = ({ children }) => {
     
     // Listen for the auth:clearCache event
     const handleClearCache = () => {
-      console.log('Received auth:clearCache event, clearing API cache');
+      console.log('API CONTEXT: Received auth:clearCache event, clearing API cache');
       clearCache();
     };
     
+    // Listen for route change events
+    const handleRouteChange = (event) => {
+      console.log(`API CONTEXT: Route changed to ${event.detail.path}, clearing API cache`);
+      
+      // If the route change includes user info, log it
+      if (event.detail.user) {
+        console.log('API CONTEXT: Route change with user:', event.detail.user);
+      }
+      
+      clearCache();
+    };
+    
+    // Listen for complete reset events
+    const handleCompleteReset = () => {
+      console.log('API CONTEXT: Received auth:completeReset event, performing complete API reset');
+      forceCompleteReset();
+    };
+    
     window.addEventListener('auth:clearCache', handleClearCache);
+    window.addEventListener('route:change', handleRouteChange);
+    window.addEventListener('auth:completeReset', handleCompleteReset);
     
     // Clean up
     return () => {
       delete window.clearApiCache;
       window.removeEventListener('auth:clearCache', handleClearCache);
+      window.removeEventListener('route:change', handleRouteChange);
+      window.removeEventListener('auth:completeReset', handleCompleteReset);
     };
   }, []);
   
+  // Clear cache when token changes
   useEffect(() => {
-    clearCache();
+    if (token) {
+      console.log('Token changed, clearing API cache');
+      clearCache();
+    }
   }, [token]);
   
-  const fetchData = useCallback(async (endpoint, options = {}, useCache = true, cacheTime = DEFAULT_CACHE_TIME) => {
+  const fetchData = useCallback(async (endpoint, options = {}, useCache = true, cacheTime = DEFAULT_CACHE_TIME, cacheKeySuffix = '') => {
     // Skip cache for non-GET requests
     const isGetRequest = !options.method || options.method === 'GET';
     useCache = useCache && isGetRequest;
     
     // Generate cache key from endpoint and any query parameters
-    const cacheKey = endpoint + (options.body ? JSON.stringify(options.body) : '');
+    const cacheKey = endpoint + (options.body ? JSON.stringify(options.body) : '') + cacheKeySuffix;
     
     // Check cache first if it's a GET request
     if (useCache) {
@@ -213,8 +258,11 @@ export const ApiProvider = ({ children }) => {
   // API methods for teams
   const getTeams = useCallback(() => fetchData('/teams', {}, true), [fetchData]);
   
-  const getMyTeams = useCallback(() => 
-    fetchData('/teams/my-teams', {}, true), [fetchData]);
+  const getMyTeams = useCallback(() => {
+    console.log('API CONTEXT: Fetching my teams');
+    // Add user ID to cache key to ensure different users get different caches
+    return fetchData('/teams/my-teams', {}, true, 0, `my-teams-${user?.id}`);
+  }, [fetchData, user]);
   
   const getTeamById = useCallback((id) => 
     fetchData(`/teams/${id}`, {}, true), [fetchData]);
@@ -238,6 +286,18 @@ export const ApiProvider = ({ children }) => {
   
   // API methods for league
   const getLeague = useCallback((leagueId) => fetchData(`/leagues/${leagueId}`, {}, true), [fetchData]);
+  
+  const getLeagues = useCallback(() => {
+    console.log('API CONTEXT: Fetching all leagues');
+    // Add user ID to cache key to ensure different users get different caches
+    return fetchData('/leagues', {}, true, 0, `leagues-${user?.id}`);
+  }, [fetchData, user]);
+  
+  const getUserLeagues = useCallback(() => {
+    console.log('API CONTEXT: Fetching user leagues');
+    // Add user ID to cache key to ensure different users get different caches
+    return fetchData('/leagues/my-leagues', {}, true, 0, `my-leagues-${user?.id}`);
+  }, [fetchData, user]);
   
   const getStandings = useCallback((leagueId) => 
     fetchData(`/leagues/${leagueId}/standings`, {}, true), [fetchData]);
@@ -277,12 +337,6 @@ export const ApiProvider = ({ children }) => {
     }, false), [fetchData]);
   
   // League related API methods
-  const getLeagues = useCallback(() => 
-    fetchData('/leagues', {}, true), [fetchData]);
-
-  const getUserLeagues = useCallback(() => 
-    fetchData('/leagues/user', {}, true), [fetchData]);
-
   const getLeagueById = useCallback((id, refresh = false) => {
     // If refresh is true, add a query param to bust cache and get fresh data
     const endpoint = refresh ? `/leagues/${id}?refresh=true` : `/leagues/${id}`;
@@ -407,6 +461,7 @@ export const ApiProvider = ({ children }) => {
     loading,
     error,
     clearCache, // Expose cache clearing function
+    forceCompleteReset, // Expose complete reset function
     // Player methods
     getPlayers,
     getPlayersByRegion,

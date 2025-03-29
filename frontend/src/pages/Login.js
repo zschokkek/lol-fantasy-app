@@ -1,5 +1,5 @@
 // frontend/src/pages/Login.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box, Heading, FormControl, FormLabel, Input, Button,
@@ -11,8 +11,21 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, loading } = useAuth();
+  const { login, loading, user } = useAuth();
   const navigate = useNavigate();
+  
+  // Log if there's already a user when the login page loads
+  useEffect(() => {
+    if (user) {
+      console.log('LOGIN PAGE: Already logged in user detected:', {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      });
+    } else {
+      console.log('LOGIN PAGE: No user currently logged in');
+    }
+  }, [user]);
   
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,10 +36,24 @@ const Login = () => {
       return;
     }
     
+    console.log('LOGIN PAGE: Attempting login for username:', username);
+    
     try {
-      await login(username, password);
-      navigate('/'); // Redirect to home page
+      console.log('LOGIN PAGE: Calling login function');
+      const result = await login(username, password);
+      console.log('LOGIN PAGE: Login successful, user data:', {
+        id: result?.user?.id,
+        username: result?.user?.username,
+        email: result?.user?.email
+      });
+      
+      // Add a small delay to ensure state updates before navigation
+      setTimeout(() => {
+        console.log('LOGIN PAGE: Navigating to home page');
+        navigate('/');
+      }, 100);
     } catch (error) {
+      console.error('LOGIN PAGE: Login error:', error.message);
       setError(error.message);
     }
   };

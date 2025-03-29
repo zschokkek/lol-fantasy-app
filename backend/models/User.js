@@ -103,10 +103,20 @@ userSchema.pre('save', async function(next) {
   if (!this.isModified('passwordHash')) return next();
   
   try {
+    console.log('USER MODEL: Hashing password, current value:', this.passwordHash.substring(0, 10) + '...');
+    
+    // Check if the password is already hashed (starts with $2a$ or $2b$ for bcrypt)
+    if (this.passwordHash.startsWith('$2a$') || this.passwordHash.startsWith('$2b$')) {
+      console.log('USER MODEL: Password already appears to be hashed, skipping hashing');
+      return next();
+    }
+    
     const salt = await bcrypt.genSalt(10);
     this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
+    console.log('USER MODEL: Password hashed successfully:', this.passwordHash.substring(0, 10) + '...');
     next();
   } catch (error) {
+    console.error('USER MODEL: Error hashing password:', error);
     next(error);
   }
 });
