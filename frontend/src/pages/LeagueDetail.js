@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box, Heading, Text, Button, Flex, SimpleGrid, Link,
@@ -428,7 +428,7 @@ const SetScheduleModal = ({ isOpen, onClose, onSetSchedule, league }) => {
     } catch (error) {
       toast({
         title: 'Error',
-        description: error.message || 'Failed to set league schedule',
+        description: error.message || 'Failed to set schedule',
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -586,6 +586,40 @@ const LeagueDetail = () => {
   const [loadingLeague, setLoadingLeague] = useState(true);
   const [loadingError, setLoadingError] = useState(null);
   
+  // Get team owners from the league teams
+  const members = useMemo(() => {
+    if (!league) return []; // Return empty array if league is not loaded yet
+    
+    // Start with the creator
+    const creatorTeam = league.teams?.find(team => team.userId === league.creatorId);
+    const membersList = [
+      { 
+        username: creatorTeam?.owner || 'League Creator', 
+        isCreator: true,
+        avatar: creatorTeam?.owner?.charAt(0) || 'L'
+      }
+    ];
+    
+    // Add other team owners
+    if (league.teams && league.teams.length > 0) {
+      // Get all teams except the creator's team
+      const otherTeams = league.teams.filter(team => team.userId !== league.creatorId);
+      
+      // Add each team owner to the members list
+      otherTeams.forEach(team => {
+        if (team && team.owner) {
+          membersList.push({
+            username: team.owner,
+            isCreator: false,
+            avatar: team.owner.charAt(0) || 'M'
+          });
+        }
+      });
+    }
+    
+    return membersList;
+  }, [league]);
+  
   useEffect(() => {
     const fetchLeague = async () => {
       try {
@@ -675,29 +709,10 @@ const LeagueDetail = () => {
       const response = await joinLeague(league.id, teamName);
       console.log('Join league response:', response);
       
-      // If the response includes league data, use it directly
-      if (response && response.league) {
-        console.log('Using league data from join response');
-        setLeague(response.league);
-      } else {
-        // Otherwise fetch fresh league data to ensure consistency
-        console.log('Fetching fresh league data after join with refresh=true');
-        const updatedLeague = await getLeagueById(league.id, true); // Force refresh
-        
-        console.log('Updated league data:', updatedLeague);
-        // Set the complete updated league object
-        setLeague(updatedLeague);
-      }
+      // Close the join modal
+      onJoinClose();
       
-      // Refresh standings data
-      try {
-        console.log('Refreshing standings data...');
-        const standingsData = await getStandings(league.id);
-        setStandings(standingsData);
-      } catch (err) {
-        console.error('Error fetching standings:', err);
-      }
-      
+      // Show success toast
       toast({
         title: 'Success!',
         description: `You've joined ${league.name}`,
@@ -706,8 +721,31 @@ const LeagueDetail = () => {
         position: 'top'
       });
       
-      // Close the join modal
-      onJoinClose();
+      // Add a small delay to ensure backend operations complete
+      setTimeout(async () => {
+        try {
+          // Force a complete refresh of league data
+          console.log('Fetching fresh league data after join with refresh=true');
+          const updatedLeague = await getLeagueById(league.id, true); // Force refresh
+          
+          console.log('Updated league data:', updatedLeague);
+          
+          // Set the complete updated league object
+          setLeague(updatedLeague);
+          
+          // Refresh standings data
+          try {
+            console.log('Refreshing standings data...');
+            const standingsData = await getStandings(league.id);
+            setStandings(standingsData);
+          } catch (err) {
+            console.error('Error fetching standings:', err);
+          }
+        } catch (refreshError) {
+          console.error('Error refreshing data after join:', refreshError);
+        }
+      }, 1000); // 1 second delay to ensure backend operations complete
+      
     } catch (error) {
       console.error('Error joining league:', error);
       
@@ -740,24 +778,31 @@ const LeagueDetail = () => {
     if (!league) return;
     
     try {
-      // Always fetch fresh league data to ensure consistency
-      console.log('Fetching fresh league data after team creation with refresh=true');
-      const updatedLeague = await getLeagueById(league.id, true); // Force refresh
-      
-      console.log('Updated league data:', updatedLeague);
-      // Set the complete updated league object
-      setLeague(updatedLeague);
-      
-      // Refresh standings data
-      try {
-        console.log('Refreshing standings data...');
-        const standingsData = await getStandings(league.id);
-        setStandings(standingsData);
-      } catch (err) {
-        console.error('Error fetching standings:', err);
-      }
+      // Add a small delay to ensure backend operations complete
+      setTimeout(async () => {
+        try {
+          // Force a complete refresh of league data
+          console.log('Fetching fresh league data after team creation with refresh=true');
+          const updatedLeague = await getLeagueById(league.id, true); // Force refresh
+          
+          console.log('Updated league data:', updatedLeague);
+          // Set the complete updated league object
+          setLeague(updatedLeague);
+          
+          // Refresh standings data
+          try {
+            console.log('Refreshing standings data...');
+            const standingsData = await getStandings(league.id);
+            setStandings(standingsData);
+          } catch (err) {
+            console.error('Error fetching standings:', err);
+          }
+        } catch (error) {
+          console.error('Error updating league data after team creation:', error);
+        }
+      }, 1000); // 1 second delay to ensure backend operations complete
     } catch (error) {
-      console.error('Error updating league data after team creation:', error);
+      console.error('Error handling team creation:', error);
     }
   };
   
@@ -956,14 +1001,6 @@ const LeagueDetail = () => {
                  (league.memberIds && 
                   league.memberIds.length > 0 && 
                   league.memberIds[0] === user.id);
-  
-  // Simulated members data (would need to be provided from the API)
-  const members = [
-    { username: league.creatorId ? 'League Creator' : 'Admin', isCreator: true },
-    ...(league.memberIds || [])
-      .filter(id => id !== league.creatorId)
-      .map(id => ({ username: `Member ${id.slice(0, 5)}` }))
-  ];
   
   return (
     <Box>
@@ -1380,11 +1417,20 @@ const LeagueDetail = () => {
               {members.map((member, index) => (
                 <Flex key={index} justify="space-between" align="center">
                   <Flex align="center">
-                    <Avatar size="sm" name={member.username} mr={3} bg="yellow.500" />
+                    <Avatar 
+                      size="sm" 
+                      name={member.username} 
+                      mr={3} 
+                      bg="yellow.500" 
+                      color="gray.800"
+                      fontWeight="bold"
+                    >
+                      {member.avatar}
+                    </Avatar>
                     <Text fontWeight="medium" color="white">{member.username}</Text>
                   </Flex>
-                  <Badge colorScheme={index === 0 ? "purple" : "gray"}>
-                    {index === 0 ? "Creator" : "Member"}
+                  <Badge colorScheme={member.isCreator ? "yellow" : "gray"}>
+                    {member.isCreator ? "Creator" : "Member"}
                   </Badge>
                 </Flex>
               ))}

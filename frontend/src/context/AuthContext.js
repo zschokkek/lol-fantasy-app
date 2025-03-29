@@ -45,6 +45,9 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      // Clear any existing cached data before registration
+      clearAllCaches();
+      
       const response = await fetch(`${API_URL}/users/register`, {
         method: 'POST',
         headers: {
@@ -79,6 +82,9 @@ export const AuthProvider = ({ children }) => {
     setError(null);
     
     try {
+      // Clear any existing cached data before login
+      clearAllCaches();
+      
       const response = await fetch(`${API_URL}/users/login`, {
         method: 'POST',
         headers: {
@@ -107,8 +113,38 @@ export const AuthProvider = ({ children }) => {
     }
   };
   
+  // Helper function to clear all caches
+  const clearAllCaches = () => {
+    // Clear localStorage items that might contain user-specific data
+    const authToken = localStorage.getItem('authToken'); // Save auth token temporarily
+    
+    // Clear all localStorage items except those we want to keep
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      // Skip the auth token if we're not logging out
+      if (key !== 'authToken') {
+        localStorage.removeItem(key);
+      }
+    }
+    
+    // Clear session storage as well
+    sessionStorage.clear();
+    
+    // Clear any API cache if the ApiContext has exposed a method for it
+    if (window.clearApiCache && typeof window.clearApiCache === 'function') {
+      window.clearApiCache();
+    }
+    
+    // Dispatch a custom event that ApiContext can listen for
+    window.dispatchEvent(new CustomEvent('auth:clearCache'));
+  };
+  
   // Logout user
   const logout = () => {
+    // Clear all caches first
+    clearAllCaches();
+    
+    // Then remove auth token and reset user state
     localStorage.removeItem('authToken');
     setToken(null);
     setUser(null);

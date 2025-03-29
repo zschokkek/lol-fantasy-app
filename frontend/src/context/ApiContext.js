@@ -1,5 +1,5 @@
 // frontend/src/context/ApiContext.js
-import React, { createContext, useState, useContext, useCallback, useRef } from 'react';
+import React, { createContext, useState, useContext, useCallback, useRef, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 
 const ApiContext = createContext();
@@ -40,8 +40,32 @@ export const ApiProvider = ({ children }) => {
   };
   
   const clearCache = () => {
+    console.log('Clearing API cache');
     cacheRef.current = {};
   };
+  
+  useEffect(() => {
+    // Make clearCache available globally
+    window.clearApiCache = clearCache;
+    
+    // Listen for the auth:clearCache event
+    const handleClearCache = () => {
+      console.log('Received auth:clearCache event, clearing API cache');
+      clearCache();
+    };
+    
+    window.addEventListener('auth:clearCache', handleClearCache);
+    
+    // Clean up
+    return () => {
+      delete window.clearApiCache;
+      window.removeEventListener('auth:clearCache', handleClearCache);
+    };
+  }, []);
+  
+  useEffect(() => {
+    clearCache();
+  }, [token]);
   
   const fetchData = useCallback(async (endpoint, options = {}, useCache = true, cacheTime = DEFAULT_CACHE_TIME) => {
     // Skip cache for non-GET requests
