@@ -16,6 +16,7 @@ import LeagueDetail from './pages/LeagueDetail';
 import Matchups from './pages/Matchups';
 import Standings from './pages/Standings';
 import Draft from './pages/Draft';
+import EGBDraft from './pages/EGBDraft';
 import Trade from './pages/Trade';
 import Friends from './pages/Friends';
 import Conversation from './pages/Conversation';
@@ -24,6 +25,7 @@ import LeagueRequiredRoute from './components/LeagueRequiredRoute';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ApiProvider } from './context/ApiContext';
 import { LeagueProvider } from './context/LeagueContext';
+import { DraftRoomProvider } from './context/DraftRoomContext';
 
 // Navigation listener component to clear caches on route changes
 const NavigationListener = () => {
@@ -62,116 +64,123 @@ const NavigationListener = () => {
 function App() {
   return (
     <ChakraProvider>
-      <AuthProvider>
-        <ApiProvider>
-          <LeagueProvider>
-            <Router>
-              <Box minH="100vh" bg="gray.900" color="white" overflowX="hidden" overscrollBehavior="none">
-                <Navbar />
-                <NavigationListener />
-                <Box 
-                  maxW="container.xl" 
-                  mx="auto" 
-                  px={{ base: 4, md: 6 }} 
-                  py={{ base: 6, md: 8 }}
-                >
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    
-                    {/* Protected routes */}
-                    <Route path="/players" element={
-                      <ProtectedRoute>
-                        <LeagueRequiredRoute>
+      <Router>
+        <AuthProvider>
+          <ApiProvider>
+            <LeagueProvider>
+              <DraftRoomProvider>
+                <Box minH="100vh" bg="gray.900" color="white" overflowX="hidden" overscrollBehavior="none">
+                  <Navbar />
+                  <NavigationListener />
+                  <Box 
+                    maxW="container.xl" 
+                    mx="auto" 
+                    px={{ base: 4, md: 6 }} 
+                    py={{ base: 6, md: 8 }}
+                  >
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/register" element={<Register />} />
+                      
+                      {/* Protected routes */}
+                      <Route path="/players" element={
+                        <ProtectedRoute>
+                          <LeagueRequiredRoute>
+                            <Players />
+                          </LeagueRequiredRoute>
+                        </ProtectedRoute>
+                      } />
+                      {/* This league-specific route bypasses the LeagueRequiredRoute check since the league ID is in the URL */}
+                      <Route path="/:leagueId/players" element={
+                        <ProtectedRoute>
                           <Players />
-                        </LeagueRequiredRoute>
-                      </ProtectedRoute>
-                    } />
-                    {/* This league-specific route bypasses the LeagueRequiredRoute check since the league ID is in the URL */}
-                    <Route path="/:leagueId/players" element={
-                      <ProtectedRoute>
-                        <Players />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/players/:id" element={
-                      <ProtectedRoute>
-                        <PlayerDetail />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/leagues" element={
-                      <ProtectedRoute>
-                        <Leagues />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/leagues/:id" element={
-                      <ProtectedRoute>
-                        <LeagueDetail />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/teams" element={
-                      <ProtectedRoute>
-                        <Teams />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/teams/:id" element={
-                      <ProtectedRoute>
-                        <TeamDetail />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/trade/:id" element={
-                      <ProtectedRoute>
-                        <Trade />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/league" element={
-                      <ProtectedRoute>
-                        <League />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/matchups" element={
-                      <ProtectedRoute>
-                        <LeagueRequiredRoute>
-                          <Matchups />
-                        </LeagueRequiredRoute>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/standings" element={
-                      <ProtectedRoute>
-                        <LeagueRequiredRoute>
-                          <Standings />
-                        </LeagueRequiredRoute>
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/draft" element={
-                      <ProtectedRoute>
-                        <LeagueRequiredRoute>
-                          <Draft />
-                        </LeagueRequiredRoute>
-                      </ProtectedRoute>
-                    } />
-                    
-                    {/* Friends and Messaging routes */}
-                    <Route path="/friends" element={
-                      <ProtectedRoute>
-                        <Friends />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/messages" element={
-                      <Navigate to="/friends?tab=messages" replace />
-                    } />
-                    <Route path="/messages/:id" element={
-                      <ProtectedRoute>
-                        <Conversation />
-                      </ProtectedRoute>
-                    } />
-                  </Routes>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/players/:id" element={
+                        <ProtectedRoute>
+                          <PlayerDetail />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/leagues" element={
+                        <ProtectedRoute>
+                          <Leagues />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/leagues/:id" element={
+                        <ProtectedRoute>
+                          <LeagueDetail />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/teams" element={
+                        <ProtectedRoute>
+                          <Teams />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/teams/:id" element={
+                        <ProtectedRoute>
+                          <TeamDetail />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/trade/:id" element={
+                        <ProtectedRoute>
+                          <Trade />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/league" element={
+                        <ProtectedRoute>
+                          <League />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/matchups" element={
+                        <ProtectedRoute>
+                          <LeagueRequiredRoute>
+                            <Matchups />
+                          </LeagueRequiredRoute>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/standings" element={
+                        <ProtectedRoute>
+                          <LeagueRequiredRoute>
+                            <Standings />
+                          </LeagueRequiredRoute>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/draft" element={
+                        <ProtectedRoute>
+                          <LeagueRequiredRoute>
+                            <Draft />
+                          </LeagueRequiredRoute>
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/egbdraft" element={
+                        <ProtectedRoute>
+                          <EGBDraft />
+                        </ProtectedRoute>
+                      } />
+                      
+                      {/* Friends and Messaging routes */}
+                      <Route path="/friends" element={
+                        <ProtectedRoute>
+                          <Friends />
+                        </ProtectedRoute>
+                      } />
+                      <Route path="/messages" element={
+                        <Navigate to="/friends?tab=messages" replace />
+                      } />
+                      <Route path="/messages/:id" element={
+                        <ProtectedRoute>
+                          <Conversation />
+                        </ProtectedRoute>
+                      } />
+                    </Routes>
+                  </Box>
                 </Box>
-              </Box>
-            </Router>
-          </LeagueProvider>
-        </ApiProvider>
-      </AuthProvider>
+              </DraftRoomProvider>
+            </LeagueProvider>
+          </ApiProvider>
+        </AuthProvider>
+      </Router>
     </ChakraProvider>
   );
 }
