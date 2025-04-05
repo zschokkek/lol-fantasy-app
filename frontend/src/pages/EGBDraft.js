@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { 
   Box, Heading, Text, Button, Table, Thead, Tbody, Tr, Th, Td,
   SimpleGrid, Select, Badge, Flex, Spinner, useToast, Alert, 
@@ -19,20 +19,32 @@ const EGBDraft = () => {
     joinDraft, 
     startDraft, 
     draftPlayer,
+    endDraft,
     hasUserJoined,
-    isUserTurn
+    isUserTurn,
+    chatMessages,
+    sendChatMessage
   } = useDraftRoom();
   
   const [availablePlayers, setAvailablePlayers] = useState([]);
   const [filteredPlayers, setFilteredPlayers] = useState([]);
   const [filterPosition, setFilterPosition] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatContainerRef = useRef(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const toast = useToast();
   
   useEffect(() => {
     fetchPlayersData();
   }, []);
+  
+  // Auto-scroll chat to bottom when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
   
   useEffect(() => {
     if (filterPosition) {
@@ -170,6 +182,35 @@ const EGBDraft = () => {
     startDraft();
   };
   
+  const handleEndDraft = () => {
+    if (!draftState.draftStarted) {
+      toast({
+        title: 'Cannot End Draft',
+        description: 'Draft has not started yet',
+        status: 'error',
+        duration: 3000,
+      });
+      return;
+    }
+    
+    endDraft();
+    
+    toast({
+      title: 'Draft Ended',
+      description: 'Draft has been ended and team files have been saved',
+      status: 'success',
+      duration: 3000,
+    });
+  };
+  
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    
+    sendChatMessage(chatInput);
+    setChatInput('');
+  };
+  
   const handleDraftPlayer = (player) => {
     if (!draftState.draftStarted || draftState.draftComplete) return;
     
@@ -279,18 +320,29 @@ const EGBDraft = () => {
                 ))}
               </Box>
               
-              <Button 
-                colorScheme="yellow"
-                onClick={handleStartDraft}
-                isDisabled={user.username !== 'shark' || draftState.participants.length < 2 || !isConnected}
-                isLoading={isLoading}
-              >
-                Start Draft
-              </Button>
+              <Flex gap={4}>
+                <Button 
+                  colorScheme="yellow"
+                  onClick={handleStartDraft}
+                  isDisabled={user.username !== 'shark' || draftState.participants.length < 2 || !isConnected}
+                  isLoading={isLoading}
+                >
+                  Start Draft
+                </Button>
+                
+                <Button 
+                  colorScheme="red"
+                  onClick={handleEndDraft}
+                  isDisabled={user.username !== 'shark' || !draftState.draftStarted || !isConnected}
+                  isLoading={isLoading}
+                >
+                  End Draft
+                </Button>
+              </Flex>
               
               {user.username !== 'shark' && (
                 <Text fontSize="sm" color="red.300" mt={2}>
-                  Only user "shark" can start the draft
+                  Only user "shark" can start or end the draft
                 </Text>
               )}
             </Box>
@@ -307,6 +359,18 @@ const EGBDraft = () => {
                   </Text>
                 )}
               </Alert>
+              
+              {user.username === 'shark' && !draftState.draftComplete && (
+                <Button 
+                  colorScheme="red"
+                  onClick={handleEndDraft}
+                  isDisabled={!isConnected}
+                  isLoading={isLoading}
+                  mb={4}
+                >
+                  End Draft
+                </Button>
+              )}
               
               <Text color="white">
                 Round: {Math.floor(draftState.draftHistory.length / draftState.draftOrder.length) + 1} • 
@@ -329,6 +393,7 @@ const EGBDraft = () => {
           <Tab>Draft History</Tab>
           <Tab>Teams</Tab>
           <Tab>Available Players</Tab>
+          <Tab>Chat</Tab>
         </TabList>
         
         <TabPanels>
@@ -559,6 +624,61 @@ const EGBDraft = () => {
                 )}
               </Tbody>
             </Table>
+          </TabPanel>
+          
+          <TabPanel>
+            <Box 
+              ref={chatContainerRef}
+              height="400px" 
+              overflowY="auto" 
+              bg="gray.50" 
+              p={3} 
+              mb={4} 
+              borderWidth={1} 
+              borderColor="gray.200" 
+              rounded="md"
+            >
+              {chatMessages.length > 0 ? (
+                chatMessages.map((msg, index) => (
+                  <Box 
+                    key={index} 
+                    mb={2} 
+                    p={2} 
+                    bg={msg.username === user?.username ? "blue.100" : "white"} 
+                    borderRadius="md"
+                  >
+                    <Flex justify="space-between" mb={1}>
+                      <Text fontWeight="bold" fontSize="sm">{msg.username}</Text>
+                      <Text fontSize="xs" color="gray.500">
+                        {new Date(msg.timestamp).toLocaleTimeString()}
+                      </Text>
+                    </Flex>
+                    <Text>{msg.message}</Text>
+                  </Box>
+                ))
+              ) : (
+                <Text color="gray.500" textAlign="center" mt={10}>No messages yet</Text>
+              )}
+            </Box>
+            
+            <form onSubmit={handleSendMessage}>
+              <Flex>
+                <Input
+                  placeholder="Type a message..."
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  mr={2}
+                  isDisabled={!isConnected || !user}
+                />
+                <Button 
+                  type="submit" 
+                  colorScheme="yellow"
+                  isDisabled={!isConnected || !user || !chatInput.trim()}
+                >
+                  Send
+                </Button>
+              </Flex>
+            </form>
           </TabPanel>
         </TabPanels>
       </Tabs>

@@ -20,7 +20,9 @@ class DraftRoom {
       draftOrder: [],
       currentPickIndex: 0,
       draftHistory: [],
-      teams: {}
+      teams: {},
+      draftMode: 'timed', // Default draft mode with time constraints
+      chatMessages: [] // Store chat messages
     };
     
     // Path to store draft state
@@ -129,9 +131,41 @@ class DraftRoom {
       case 'draftPlayer':
         this.handleDraftPlayer(data);
         break;
+      case 'setDraftMode':
+        this.handleSetDraftMode(data);
+        break;
+      case 'endDraft':
+        this.handleEndDraft(data);
+        break;
+      case 'chat':
+        this.handleChat(data);
+        break;
       default:
         console.log(`Unknown message type: ${type}`);
     }
+  }
+  
+  handleSetDraftMode(data) {
+    const { username, mode } = data;
+    
+    // Only user 'shark' can change draft mode
+    if (username !== 'shark') {
+      return;
+    }
+    
+    // Ensure mode is valid
+    if (mode !== 'timed' && mode !== 'untimed') {
+      return;
+    }
+    
+    // Update draft mode
+    this.draftState.draftMode = mode;
+    
+    // Save and broadcast updated state
+    this.saveDraftState();
+    this.broadcastDraftState();
+    
+    console.log(`Draft mode set to ${mode} by ${username}`);
   }
   
   handleJoin(ws, data) {
@@ -169,7 +203,7 @@ class DraftRoom {
   }
   
   handleStartDraft(data) {
-    const { username } = data;
+    const { username, mode } = data;
     
     // Only user 'shark' can start the draft
     if (username !== 'shark') {
@@ -179,6 +213,11 @@ class DraftRoom {
     // Need at least 2 participants
     if (this.draftState.participants.length < 2) {
       return;
+    }
+    
+    // Set draft mode if provided
+    if (mode === 'timed' || mode === 'untimed') {
+      this.draftState.draftMode = mode;
     }
     
     // Set draft order (randomized)
@@ -193,7 +232,7 @@ class DraftRoom {
     this.saveDraftState();
     this.broadcastDraftState();
     
-    console.log(`Draft started by ${username}`);
+    console.log(`Draft started by ${username} in ${this.draftState.draftMode} mode`);
   }
   
   handleDraftPlayer(data) {
@@ -204,9 +243,24 @@ class DraftRoom {
       return;
     }
     
-    // Validate it's the user's turn
+    // In untimed mode, any participant can draft when it's their turn
+    // In timed mode, validate it's the user's turn
+    let allowDraft = false;
     const currentDrafter = this.draftState.draftOrder[this.draftState.currentPickIndex];
-    if (username !== currentDrafter) {
+    
+    if (this.draftState.draftMode === 'untimed') {
+      // In untimed mode, allow any participant to draft when it's their turn
+      if (username === currentDrafter) {
+        allowDraft = true;
+      }
+    } else {
+      // In timed mode, strict enforcement of current drafter
+      if (username === currentDrafter) {
+        allowDraft = true;
+      }
+    }
+    
+    if (!allowDraft) {
       return;
     }
     
@@ -323,6 +377,109 @@ class DraftRoom {
   // Get the current draft state
   getDraftState() {
     return this.draftState;
+  }
+  
+  handleEndDraft(data) {
+    const { username } = data;
+    
+    // Only user 'shark' can end the draft
+    if (username !== 'shark') {
+      return;
+    }
+    
+    // Mark the draft as complete
+    this.draftState.draftComplete = true;
+    
+    // Save and broadcast updated state
+    this.saveDraftState();
+    this.broadcastDraftState();
+    
+    // Save each user's team to a text file
+    this.saveTeamsToFiles();
+    
+    console.log(`Draft ended by ${username}`);
+  }
+  
+  saveTeamsToFiles() {
+    try {
+      // Ensure a directory exists for team exports
+      const teamsDir = path.join(this.dataDir, 'teamExports');
+      fs.ensureDirSync(teamsDir);
+      
+      // Get the current date and time for the filename
+      const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
+      
+      // For each participant, create a file with their team info
+      Object.keys(this.draftState.teams).forEach(username => {
+        const team = this.draftState.teams[username];
+        const filePath = path.join(teamsDir, `${username}_team_${timestamp}.txt`);
+        
+        // Format the team data
+        let content = `Fantasy Team for ${username}\n`;
+        content += `Draft Date: ${new Date().toLocaleString()}\n\n`;
+        
+        // Add position players
+        ['TOP', 'JUNGLE', 'MID', 'ADC', 'SUPPORT', 'FLEX'].forEach(position => {
+          const player = team.players[position];
+          content += `${position}: ${player ? `${player.name} (${player.team})` : 'Empty'}\n`;
+        });
+        
+        // Add bench players
+        content += `\nBENCH:\n`;
+        if (team.players.BENCH && team.players.BENCH.length > 0) {
+          team.players.BENCH.forEach((player, index) => {
+            content += `${index + 1}. ${player.name} (${player.team}) - ${player.position}\n`;
+          });
+        } else {
+          content += 'No bench players\n';
+        }
+        
+        // Write the file
+        fs.writeFileSync(filePath, content);
+        console.log(`Saved team file for ${username} at ${filePath}`);
+      });
+    } catch (error) {
+      console.error('Error saving team files:', error);
+    }
+  }
+  
+  handleChat(data) {
+    const { username, message } = data;
+    
+    // Make sure the message isn't empty
+    if (!message || !message.trim()) return;
+    
+    // Create a chat message object
+    const chatMessage = {
+      username,
+      message: message.trim(),
+      timestamp: new Date().toISOString()
+    };
+    
+    // Add to chat messages
+    this.draftState.chatMessages.push(chatMessage);
+    
+    // Only keep the most recent 100 messages
+    if (this.draftState.chatMessages.length > 100) {
+      this.draftState.chatMessages = this.draftState.chatMessages.slice(-100);
+    }
+    
+    // Save draft state with new chat messages
+    this.saveDraftState();
+    
+    // Broadcast the chat message to all clients
+    this.broadcastChatMessage(chatMessage);
+    
+    console.log(`Chat message from ${username}: ${message}`);
+  }
+  
+  broadcastChatMessage(chatMessage) {
+    const message = JSON.stringify({
+      type: 'chatMessage',
+      data: chatMessage
+    });
+    
+    this.broadcast(message);
   }
 }
 

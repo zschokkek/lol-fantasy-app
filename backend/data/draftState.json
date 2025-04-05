@@ -1,8 +1,7 @@
 {
   "participants": [
-    "test-user",
-    "Oh man it’s lit",
-    "shark"
+    "shark",
+    "5bigbooms"
   ],
   "draftStarted": false,
   "draftComplete": false,
@@ -10,32 +9,20 @@
   "currentPickIndex": 0,
   "draftHistory": [],
   "teams": {
-    "test-user": {
-      "name": "test-user",
-      "players": {
-        "TOP": null,
-        "JUNGLE": null,
-        "MID": null,
-        "ADC": null,
-        "SUPPORT": null,
-        "FLEX": null,
-        "BENCH": []
-      }
-    },
-    "Oh man it’s lit": {
-      "name": "Oh man it’s lit",
-      "players": {
-        "TOP": null,
-        "JUNGLE": null,
-        "MID": null,
-        "ADC": null,
-        "SUPPORT": null,
-        "FLEX": null,
-        "BENCH": []
-      }
-    },
     "shark": {
       "name": "shark",
+      "players": {
+        "TOP": null,
+        "JUNGLE": null,
+        "MID": null,
+        "ADC": null,
+        "SUPPORT": null,
+        "FLEX": null,
+        "BENCH": []
+      }
+    },
+    "5bigbooms": {
+      "name": "5bigbooms",
       "players": {
         "TOP": null,
         "JUNGLE": null,

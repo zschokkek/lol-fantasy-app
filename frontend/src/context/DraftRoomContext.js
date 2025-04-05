@@ -17,8 +17,12 @@ export const DraftRoomProvider = ({ children }) => {
     draftOrder: [],
     currentPickIndex: 0,
     draftHistory: [],
-    teams: {}
+    teams: {},
+    chatMessages: []
   });
+  
+  // State to store chat messages for easier access
+  const [chatMessages, setChatMessages] = useState([]);
   
   // Connect to WebSocket server when user is authenticated
   useEffect(() => {
@@ -101,12 +105,20 @@ export const DraftRoomProvider = ({ children }) => {
     switch (type) {
       case 'draftState':
         setDraftState(data);
+        // Update chat messages when draft state is loaded
+        if (data.chatMessages && Array.isArray(data.chatMessages)) {
+          setChatMessages(data.chatMessages);
+        }
         break;
       case 'participantUpdate':
         setDraftState(prev => ({
           ...prev,
           participants: data.participants
         }));
+        break;
+      case 'chatMessage':
+        // Add new chat message to the state
+        setChatMessages(prev => [...prev, data]);
         break;
       default:
         console.log(`Unknown message type: ${type}`);
@@ -146,6 +158,29 @@ export const DraftRoomProvider = ({ children }) => {
     }));
   }, [socket, user]);
   
+  // End the draft
+  const endDraft = useCallback(() => {
+    if (!socket || !user) return;
+    
+    socket.send(JSON.stringify({
+      type: 'endDraft',
+      data: { username: user.username }
+    }));
+  }, [socket, user]);
+  
+  // Send a chat message
+  const sendChatMessage = useCallback((message) => {
+    if (!socket || !user || !message.trim()) return;
+    
+    socket.send(JSON.stringify({
+      type: 'chat',
+      data: {
+        username: user.username,
+        message: message.trim()
+      }
+    }));
+  }, [socket, user]);
+  
   // Check if current user has already joined
   const hasUserJoined = useCallback(() => {
     return draftState.participants.includes(user?.username);
@@ -167,8 +202,11 @@ export const DraftRoomProvider = ({ children }) => {
         joinDraft,
         startDraft,
         draftPlayer,
+        endDraft,
         hasUserJoined,
-        isUserTurn
+        isUserTurn,
+        chatMessages,
+        sendChatMessage
       }}
     >
       {children}

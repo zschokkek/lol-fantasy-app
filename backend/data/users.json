@@ -86,5 +86,16 @@
     "isAdmin": false,
     "avatar": "",
     "status": "offline"
+  },
+  {
+    "id": "049b12d1-e6d7-4e20-9153-32db259c138e",
+    "username": "5bigbooms",
+    "email": "mcintirejohn4@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
   }
 ]
