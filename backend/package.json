@@ -21,7 +21,8 @@
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^8.13.0",
     "morgan": "^1.10.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "ws": "^8.18.1"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

@@ -494,7 +494,6 @@ app.post('/api/users/register', async (req, res) => {
   
   // Login
   app.post('/api/users/login', async (req, res) => {
-    console.log('Login attempt:', req.body);
     try {
       const { username, password } = req.body;
       
