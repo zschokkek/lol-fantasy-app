@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs').promises;
 const bodyParser = require('body-parser');
 const http = require('http');
+const https = require('https');
 const WebSocket = require('ws');
 
 // Load environment variables
@@ -3231,7 +3232,7 @@ app.get('/api/leagues/:id/matchups/:week', (req, res) => {
   }
 });
 
-// Start server
+// Start HTTP server for regular API requests
 const server = http.createServer(app);
 server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
@@ -3295,290 +3296,53 @@ server.listen(PORT, async () => {
   }, SAVE_INTERVAL);
 });
 
-// Initialize WebSocket server for draft room
-const wss = new WebSocket.Server({ server });
+// Initialize WebSocket server for draft room using DraftRoom class
+const DraftRoom = require('./draftRoom');
+const draftRoom = new DraftRoom(server);
 
-// Draft room state
-let draftRoom = {
-  clients: new Map(),
-  draftState: {
-    participants: [],
-    draftStarted: false,
-    draftComplete: false,
-    draftOrder: [],
-    currentPickIndex: 0,
-    draftHistory: [],
-    teams: {}
-  },
+// Add WebSocket server to handle /ws and /wss paths
+const wss = new WebSocket.Server({ noServer: true });
+
+// Handle WebSocket upgrade requests
+server.on('upgrade', (request, socket, head) => {
+  const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
   
-  // Save draft state to file
-  saveDraftState: function() {
-    const dataDir = path.join(__dirname, 'data');
-    const draftStatePath = path.join(dataDir, 'draftState.json');
-    
-    // Ensure data directory exists
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    
-    // Write draft state to file
-    fs.writeFile(draftStatePath, JSON.stringify(this.draftState, null, 2))
-      .catch(err => console.error('Error saving draft state:', err));
-  },
-  
-  // Load draft state from file
-  loadDraftState: async function() {
-    const dataDir = path.join(__dirname, 'data');
-    const draftStatePath = path.join(dataDir, 'draftState.json');
-    
-    try {
-      // Check if file exists
-      await fs.access(draftStatePath);
-      
-      // Read and parse file
-      const data = await fs.readFile(draftStatePath, 'utf8');
-      this.draftState = JSON.parse(data);
-      console.log('Loaded existing draft state');
-    } catch (error) {
-      console.log('No existing draft state found, using default');
-    }
-  },
-  
-  // Broadcast message to all connected clients
-  broadcast: function(message) {
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
+  if (pathname === '/ws' || pathname === '/wss') {
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
     });
-  },
-  
-  // Broadcast draft state to all clients
-  broadcastDraftState: function() {
-    this.broadcast(JSON.stringify({
-      type: 'draftState',
-      data: this.draftState
-    }));
-  },
-  
-  // Broadcast participant status to all clients
-  broadcastParticipantStatus: function() {
-    this.broadcast(JSON.stringify({
-      type: 'participantUpdate',
-      data: {
-        participants: this.draftState.participants
-      }
-    }));
-  },
-  
-  // Handle a user joining the draft
-  handleJoin: function(ws, data) {
-    const { username } = data;
-    
-    // Store client information
-    this.clients.set(ws, { username });
-    
-    // Add to participants if not already there
-    if (!this.draftState.participants.includes(username)) {
-      this.draftState.participants.push(username);
-      
-      // Initialize empty team for new participant
-      this.draftState.teams[username] = {
-        name: username,
-        players: {
-          TOP: null,
-          JUNGLE: null,
-          MID: null,
-          ADC: null,
-          SUPPORT: null,
-          FLEX: null,
-          BENCH: []
-        }
-      };
-      
-      // Save updated state
-      this.saveDraftState();
-    }
-    
-    // Broadcast updated participant list
-    this.broadcastParticipantStatus();
-    
-    console.log(`User joined draft room: ${username}`);
-  },
-  
-  // Handle starting the draft
-  handleStartDraft: function(data) {
-    const { username } = data;
-    
-    // Need at least 2 participants
-    if (this.draftState.participants.length < 2) {
-      return;
-    }
-    
-    // Set draft order (randomized)
-    const shuffledParticipants = [...this.draftState.participants].sort(() => Math.random() - 0.5);
-    
-    this.draftState.draftOrder = shuffledParticipants;
-    this.draftState.draftStarted = true;
-    this.draftState.currentPickIndex = 0;
-    this.draftState.draftHistory = [];
-    
-    // Save and broadcast updated state
-    this.saveDraftState();
-    this.broadcastDraftState();
-    
-    console.log(`Draft started by ${username}`);
-  },
-  
-  // Calculate next pick index for snake draft
-  calculateNextPickIndex: function() {
-    const totalParticipants = this.draftState.draftOrder.length;
-    const historyLength = this.draftState.draftHistory.length;
-    const currentIndex = this.draftState.currentPickIndex;
-    
-    const roundNumber = Math.floor(historyLength / totalParticipants);
-    const isEvenRound = roundNumber % 2 === 1; // 0-indexed round numbers, so odd number = even round
-    
-    if (isEvenRound) {
-      // Even rounds go backward
-      if (currentIndex > 0) {
-        return currentIndex - 1;
-      } else {
-        // Reached the beginning, start next round
-        return 0;
-      }
-    } else {
-      // Odd rounds go forward
-      if (currentIndex < totalParticipants - 1) {
-        return currentIndex + 1;
-      } else {
-        // Reached the end, start going backward
-        return totalParticipants - 1;
-      }
-    }
-  },
-  
-  // Handle drafting a player
-  handleDraftPlayer: function(data) {
-    const { username, player } = data;
-    
-    // Validate draft is in progress
-    if (!this.draftState.draftStarted || this.draftState.draftComplete) {
-      return;
-    }
-    
-    // Validate it's the user's turn
-    const currentDrafter = this.draftState.draftOrder[this.draftState.currentPickIndex];
-    if (username !== currentDrafter) {
-      return;
-    }
-    
-    // Determine best position for player
-    const team = this.draftState.teams[currentDrafter];
-    let positionToFill = '';
-    
-    // Try to place in primary position first
-    if (!team.players[player.position]) {
-      positionToFill = player.position;
-    } 
-    // Try FLEX position
-    else if (!team.players.FLEX) {
-      positionToFill = 'FLEX';
-    }
-    // Try bench
-    else if (team.players.BENCH.length < 3) {
-      positionToFill = 'BENCH';
-    } else {
-      // No valid position
-      return;
-    }
-    
-    // Update team
-    if (positionToFill === 'BENCH') {
-      team.players.BENCH.push(player);
-    } else {
-      team.players[positionToFill] = player;
-    }
-    
-    // Add to draft history
-    const draftPick = {
-      round: Math.floor(this.draftState.draftHistory.length / this.draftState.draftOrder.length) + 1,
-      pick: this.draftState.draftHistory.length + 1,
-      user: currentDrafter,
-      player: player,
-      position: positionToFill
-    };
-    
-    this.draftState.draftHistory.push(draftPick);
-    
-    // Calculate next drafter index for snake draft
-    const nextIndex = this.calculateNextPickIndex();
-    this.draftState.currentPickIndex = nextIndex;
-    
-    // Check if draft is complete (each user gets 6 picks)
-    const totalPicks = this.draftState.draftOrder.length * 6;
-    if (this.draftState.draftHistory.length >= totalPicks) {
-      this.draftState.draftComplete = true;
-    }
-    
-    // Save and broadcast updated state
-    this.saveDraftState();
-    this.broadcastDraftState();
-    
-    console.log(`Player drafted: ${player.name} by ${username}`);
+  } else {
+    socket.destroy();
   }
-};
+});
 
-// Load draft state on startup
-draftRoom.loadDraftState();
-
-// WebSocket connection handler
-wss.on('connection', (ws) => {
-  console.log('New client connected to draft room');
+// Handle WebSocket connections
+wss.on('connection', (ws, request) => {
+  console.log('New client connected to WebSocket server');
+  
+  ws.on('message', (message) => {
+    try {
+      const data = JSON.parse(message);
+      draftRoom.handleMessage(ws, data);
+    } catch (error) {
+      console.error('Error handling message:', error);
+    }
+  });
+  
+  ws.on('close', () => {
+    if (draftRoom.clients.has(ws)) {
+      const userData = draftRoom.clients.get(ws);
+      console.log(`Client disconnected: ${userData.username}`);
+      draftRoom.clients.delete(ws);
+      draftRoom.broadcastParticipantStatus();
+    }
+  });
   
   // Send current draft state to new client
   ws.send(JSON.stringify({
     type: 'draftState',
     data: draftRoom.draftState
   }));
-  
-  // Handle messages from client
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      const { type, data: messageData } = data;
-      
-      switch (type) {
-        case 'join':
-          draftRoom.handleJoin(ws, messageData);
-          break;
-        case 'startDraft':
-          draftRoom.handleStartDraft(messageData);
-          break;
-        case 'draftPlayer':
-          draftRoom.handleDraftPlayer(messageData);
-          break;
-        default:
-          console.log(`Unknown message type: ${type}`);
-      }
-    } catch (error) {
-      console.error('Error handling message:', error);
-    }
-  });
-  
-  // Handle client disconnection
-  ws.on('close', () => {
-    if (draftRoom.clients.has(ws)) {
-      const userData = draftRoom.clients.get(ws);
-      console.log(`Client disconnected from draft room: ${userData.username}`);
-      
-      // Note: We don't remove participants when they disconnect
-      // This allows them to reconnect and continue drafting
-      
-      draftRoom.clients.delete(ws);
-      
-      // Broadcast updated client list
-      draftRoom.broadcastParticipantStatus();
-    }
-  });
 });
+
+console.log('WebSocket server initialized on main server instance for /ws and /wss paths');

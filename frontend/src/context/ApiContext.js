@@ -8,6 +8,9 @@ const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 // Cache configuration
 const DEFAULT_CACHE_TIME = 5 * 60 * 1000; // 5 minutes in milliseconds
 const PLAYER_CACHE_TIME = 15 * 60 * 1000; // 15 minutes for player data
+// Set shorter cache time for mobile to prevent stale data issues
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+const MOBILE_CACHE_FACTOR = 0.5; // 50% shorter cache time on mobile
 
 export const ApiProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
@@ -33,9 +36,12 @@ export const ApiProvider = ({ children }) => {
   };
   
   const setCachedData = (cacheKey, data, expiryTime) => {
+    // Apply shorter cache times on mobile devices to prevent stale data
+    const adjustedExpiryTime = isMobile ? Math.floor(expiryTime * MOBILE_CACHE_FACTOR) : expiryTime;
+    
     cacheRef.current[cacheKey] = {
       data,
-      expiry: Date.now() + expiryTime
+      expiry: Date.now() + adjustedExpiryTime
     };
   };
   
@@ -82,7 +88,14 @@ export const ApiProvider = ({ children }) => {
         console.log('API CONTEXT: Route change with user:', event.detail.user);
       }
       
-      clearCache();
+      // On mobile, clear cache more aggressively on navigation
+      if (isMobile) {
+        console.log('API CONTEXT: Mobile device detected, performing deeper cache clear');
+        // Force cache clearing for mobile navigation
+        clearCache();
+      } else {
+        clearCache();
+      }
     };
     
     // Listen for complete reset events
@@ -91,9 +104,18 @@ export const ApiProvider = ({ children }) => {
       forceCompleteReset();
     };
     
+    // Listen for page visibility changes to clear cache when user returns to the app
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isMobile) {
+        console.log('API CONTEXT: Mobile app returning to foreground, clearing cache');
+        clearCache();
+      }
+    };
+    
     window.addEventListener('auth:clearCache', handleClearCache);
     window.addEventListener('route:change', handleRouteChange);
     window.addEventListener('auth:completeReset', handleCompleteReset);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     
     // Clean up
     return () => {
@@ -101,6 +123,7 @@ export const ApiProvider = ({ children }) => {
       window.removeEventListener('auth:clearCache', handleClearCache);
       window.removeEventListener('route:change', handleRouteChange);
       window.removeEventListener('auth:completeReset', handleCompleteReset);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
   

@@ -5,7 +5,13 @@ const path = require('path');
 
 class DraftRoom {
   constructor(server) {
-    this.wss = new WebSocket.Server({ server });
+    // If server is provided, set up WebSocket handling for /ws path
+    if (server) {
+      this.wss = new WebSocket.Server({ server, path: '/ws' });
+    } else {
+      // Create a standalone WebSocket server for use with draftServer.js
+      this.wss = null; // Will be set by setupWebSocketServer method
+    }
     this.clients = new Map(); // Maps client WebSocket to user data
     this.draftState = {
       participants: [],
@@ -24,11 +30,13 @@ class DraftRoom {
     // Ensure data directory exists
     fs.ensureDirSync(this.dataDir);
     
-    // Load existing draft state if available
-    this.loadDraftState();
+    // Reset draft state on server restart (don't load previous state)
+    this.resetDraftStateFile();
     
     // Set up WebSocket connection handling
     this.setupWebSocketServer();
+    
+    console.log('Draft room WebSocket server initialized with server');
   }
   
   loadDraftState() {
@@ -44,6 +52,16 @@ class DraftRoom {
     }
   }
   
+  resetDraftStateFile() {
+    try {
+      // Write the empty draft state to the file
+      fs.writeFileSync(this.draftStatePath, JSON.stringify(this.draftState, null, 2));
+      console.log('Reset draft state file');
+    } catch (error) {
+      console.error('Error resetting draft state file:', error);
+    }
+  }
+  
   saveDraftState() {
     try {
       fs.writeFileSync(this.draftStatePath, JSON.stringify(this.draftState, null, 2));
@@ -52,9 +70,18 @@ class DraftRoom {
     }
   }
   
-  setupWebSocketServer() {
+  setupWebSocketServer(port) {
+    // If this is being used with a standalone port (draftServer.js), create a new WebSocket server
+    if (port) {
+      this.wss = new WebSocket.Server({ port });
+      console.log(`Draft WebSocket server running on port ${port}`);
+    }
+    
+    // Skip setup if wss is not initialized yet
+    if (!this.wss) return;
+    
     this.wss.on('connection', (ws) => {
-      console.log('New client connected');
+      console.log('New client connected to draft room');
       
       ws.on('message', (message) => {
         try {

@@ -25,10 +25,29 @@ export const DraftRoomProvider = ({ children }) => {
     if (!user) return;
     
     // Create WebSocket connection to the main server
-    const ws = new WebSocket(`ws://${window.location.hostname}:5000`);
+    // Determine WebSocket URL based on environment
+    
+    // Determine protocol based on current connection
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    
+    // Use the /wss path for secure connections, /ws for non-secure
+    // const wsPath = window.location.protocol === 'https:' ? '/wss' : '/ws';
+    const wsUrl = `wss://egbfantasy.com:8443`;
+    
+    console.log(`Draft WebSocket connecting to: ${wsUrl}`);
+    const ws = new WebSocket(wsUrl);
+    
+    // Add connection timeout and retry logic
+    let connectionTimeout = setTimeout(() => {
+      console.error(`WebSocket connection timeout to ${wsUrl}`);
+      if (ws.readyState !== WebSocket.OPEN) {
+        ws.close();
+      }
+    }, 5000);
     
     ws.onopen = () => {
       console.log('Connected to draft room');
+      clearTimeout(connectionTimeout);
       setIsConnected(true);
       setSocket(ws);
       
@@ -48,14 +67,24 @@ export const DraftRoomProvider = ({ children }) => {
       }
     };
     
-    ws.onclose = () => {
-      console.log('Disconnected from draft room');
+    ws.onclose = (event) => {
+      console.log('Disconnected from draft room', {
+        code: event.code,
+        reason: event.reason,
+        wasClean: event.wasClean
+      });
       setIsConnected(false);
       setSocket(null);
     };
     
     ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      console.error('WebSocket error details:', {
+        url: ws.url,
+        readyState: ws.readyState,
+        bufferedAmount: ws.bufferedAmount,
+        error: error.message || 'Unknown error'
+      });
     };
     
     // Clean up on unmount

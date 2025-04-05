@@ -18,19 +18,15 @@ class UserService {
       const userData = JSON.parse(data);
       
       this.users = userData.map(user => {
-        return new User(
-          user.id,
-          user.username,
-          user.email,
-          user.passwordHash
-        );
-      });
-      
-      // Restore additional properties
-      this.users.forEach((user, index) => {
-        user.teams = userData[index].teams || [];
-        user.leagues = userData[index].leagues || [];
-        user.isAdmin = userData[index].isAdmin || false;
+        return new User({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          passwordHash: user.passwordHash,
+          teams: user.teams || [],
+          leagues: user.leagues || [],
+          isAdmin: user.isAdmin || false
+        });
       });
       
       console.log(`Loaded ${this.users.length} users from disk`);

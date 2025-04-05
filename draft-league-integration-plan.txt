@@ -1,0 +1,524 @@
+# Draft-to-League Integration Plan
+
+## Overview
+This document outlines a detailed implementation plan for integrating the WebSocket-based draft room results with the League model in the LoL Fantasy App. The goal is to automatically save draft results to the appropriate league profile when a draft completes.
+
+## Current Architecture Analysis
+
+### Draft System
+1. Two parallel implementations exist:
+   - Frontend-only implementation in `Draft.js` using localStorage
+   - WebSocket-based implementation in `draftRoom.js`/`draftServer.js`
+2. WebSocket draft state structure:
+   ```javascript
+   draftState = {
+     participants: [], // usernames of participants
+     draftStarted: false,
+     draftComplete: false,
+     draftOrder: [], // ordered list of usernames
+     currentPickIndex: 0,
+     draftHistory: [], // list of picks made
+     teams: {
+       [username]: {
+         name: username,
+         players: {
+           TOP: playerObject,
+           JUNGLE: playerObject,
+           MID: playerObject,
+           ADC: playerObject,
+           SUPPORT: playerObject,
+           FLEX: playerObject,
+           BENCH: [playerObject, playerObject, ...]
+         }
+       }
+     }
+   }
+   ```
+
+### League System
+1. League model in `League.js` stores:
+   - League metadata (name, description, etc.)
+   - Teams as array of references to FantasyTeam objects
+   - Schedule for matchups
+   - Standings
+
+2. FantasyTeam structure:
+   ```javascript
+   {
+     id: String,
+     name: String,
+     owner: String,
+     players: {
+       TOP: playerObject,
+       JUNGLE: playerObject,
+       MID: playerObject,
+       ADC: playerObject,
+       SUPPORT: playerObject,
+       FLEX: playerObject,
+       BENCH: [playerObject, playerObject, ...]
+     },
+     leagueId: String
+   }
+   ```
+
+## Implementation Plan
+
+### Step 1: Add Draft-to-League Association
+Add a parameter to store which league a draft is associated with:
+
+1. Modify `draftRoom.js`:
+   ```javascript
+   this.draftState = {
+     // Existing properties
+     leagueId: null, // Add this field
+     // Other properties
+   };
+   ```
+
+2. Add function to set/update league association:
+   ```javascript
+   setLeagueId(leagueId) {
+     this.draftState.leagueId = leagueId;
+     this.saveDraftState();
+   }
+   ```
+
+### Step 2: Create Backend Endpoint for League Association
+
+1. Add route in `draftRoutes.js`:
+   ```javascript
+   // Associate draft with a league
+   router.post('/associate-league', auth, async (req, res) => {
+     try {
+       const { leagueId } = req.body;
+       
+       if (!draftRoom) {
+         return res.status(404).json({ success: false, error: 'Draft room not initialized' });
+       }
+       
+       if (!leagueId) {
+         return res.status(400).json({ success: false, error: 'League ID is required' });
+       }
+       
+       draftRoom.setLeagueId(leagueId);
+       
+       res.json({ success: true, message: 'Draft associated with league' });
+     } catch (error) {
+       console.error('Error associating draft with league:', error);
+       res.status(500).json({ success: false, error: error.message });
+     }
+   });
+   ```
+
+### Step 3: Add Draft Completion Handler in draftRoom.js
+
+1. Modify `handleDraftPlayer` function in `draftRoom.js` to check for draft completion:
+   ```javascript
+   handleDraftPlayer(data) {
+     // Existing draft player logic
+     
+     // Check if draft is complete (each user gets 6 picks)
+     const totalPicks = this.draftState.draftOrder.length * 6;
+     if (this.draftState.draftHistory.length >= totalPicks) {
+       this.draftState.draftComplete = true;
+       
+       // Call draft completion handler
+       this.handleDraftComplete();
+     }
+     
+     // Save and broadcast updated state
+     this.saveDraftState();
+     this.broadcastDraftState();
+   }
+   ```
+
+2. Add draft completion handler function:
+   ```javascript
+   async handleDraftComplete() {
+     try {
+       // Skip if no league is associated
+       if (!this.draftState.leagueId) {
+         console.log('Draft completed but no league associated');
+         return;
+       }
+       
+       console.log(`Draft completed! Saving results to league ${this.draftState.leagueId}`);
+       
+       // Make API call to save draft results to league
+       const response = await fetch(`/api/leagues/${this.draftState.leagueId}/save-draft`, {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+         },
+         body: JSON.stringify({ 
+           draftState: this.draftState 
+         })
+       });
+       
+       const result = await response.json();
+       console.log('Save draft result:', result);
+       
+       // Broadcast completion message
+       this.broadcast(JSON.stringify({
+         type: 'draftCompleted',
+         data: {
+           message: 'Draft has been completed and saved to league',
+           leagueId: this.draftState.leagueId
+         }
+       }));
+     } catch (error) {
+       console.error('Error saving draft results to league:', error);
+     }
+   }
+   ```
+
+### Step 4: Create League API Endpoint for Saving Draft Results
+
+1. Create new endpoint in league routes:
+   ```javascript
+   // Save draft results to league
+   router.post('/:id/save-draft', auth, async (req, res) => {
+     try {
+       const { draftState } = req.body;
+       const leagueId = req.params.id;
+       
+       if (!draftState) {
+         return res.status(400).json({ success: false, error: 'Draft state is required' });
+       }
+       
+       // Get league
+       const league = await League.findOne({ id: leagueId });
+       if (!league) {
+         return res.status(404).json({ success: false, error: 'League not found' });
+       }
+       
+       // Get all fantasy teams for this league
+       const FantasyTeam = mongoose.model('FantasyTeam');
+       const fantasyTeams = await FantasyTeam.find({ leagueId });
+       
+       // Map of username to fantasyTeam
+       const teamMap = {};
+       fantasyTeams.forEach(team => {
+         teamMap[team.owner] = team;
+       });
+       
+       // Update each team with draft results
+       const updates = [];
+       
+       for (const [username, draftTeam] of Object.entries(draftState.teams)) {
+         // Find the corresponding fantasy team
+         const fantasyTeam = teamMap[username];
+         
+         if (fantasyTeam) {
+           // Update player assignments
+           fantasyTeam.players = draftTeam.players;
+           
+           // Save team
+           updates.push(fantasyTeam.save());
+         }
+       }
+       
+       // Wait for all updates to complete
+       await Promise.all(updates);
+       
+       // Update league status if needed
+       league.draftComplete = true;
+       await league.save();
+       
+       res.json({ 
+         success: true, 
+         message: 'Draft results saved to league successfully',
+         teamsUpdated: updates.length
+       });
+     } catch (error) {
+       console.error('Error saving draft results to league:', error);
+       res.status(500).json({ success: false, error: error.message });
+     }
+   });
+   ```
+
+### Step 5: Update Frontend Draft Room Component
+
+1. Modify `DraftRoomContext.js` to handle draft completion:
+   ```javascript
+   useEffect(() => {
+     // Existing socket setup logic
+     
+     ws.onmessage = (event) => {
+       try {
+         const message = JSON.parse(event.data);
+         handleMessage(message);
+       } catch (error) {
+         console.error('Error parsing message:', error);
+       }
+     };
+     
+     // Other existing code
+   }, [user]);
+   
+   const handleMessage = (message) => {
+     const { type, data } = message;
+     
+     switch (type) {
+       case 'draftState':
+         setDraftState(data);
+         break;
+       case 'participantUpdate':
+         setDraftState(prev => ({
+           ...prev,
+           participants: data.participants
+         }));
+         break;
+       case 'draftCompleted':
+         // Handle draft completion on frontend
+         handleDraftCompletion(data);
+         break;
+       default:
+         console.log(`Unknown message type: ${type}`);
+     }
+   };
+   
+   const handleDraftCompletion = (data) => {
+     // Show notification
+     toast({
+       title: 'Draft Complete',
+       description: 'Draft has been completed and teams have been updated',
+       status: 'success',
+       duration: 5000,
+       isClosable: true,
+     });
+     
+     // Navigate to league page if leagueId is available
+     if (data.leagueId) {
+       navigate(`/leagues/${data.leagueId}`);
+     }
+   };
+   ```
+
+2. Add function to associate draft with league:
+   ```javascript
+   const associateWithLeague = useCallback(async (leagueId) => {
+     if (!isConnected) return;
+     
+     try {
+       const response = await fetch('/api/draft/associate-league', {
+         method: 'POST',
+         headers: {
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${localStorage.getItem('token')}`
+         },
+         body: JSON.stringify({ leagueId })
+       });
+       
+       const data = await response.json();
+       
+       if (data.success) {
+         console.log(`Draft associated with league ${leagueId}`);
+         return true;
+       } else {
+         console.error('Error associating draft with league:', data.error);
+         return false;
+       }
+     } catch (error) {
+       console.error('Error making association request:', error);
+       return false;
+     }
+   }, [isConnected]);
+   
+   // Add to context value
+   return (
+     <DraftRoomContext.Provider
+       value={{
+         isConnected,
+         draftState,
+         joinDraft,
+         startDraft,
+         draftPlayer,
+         hasUserJoined,
+         isUserTurn,
+         associateWithLeague // Add this
+       }}
+     >
+       {children}
+     </DraftRoomContext.Provider>
+   );
+   ```
+
+### Step 6: Create New DraftRoom Launcher Component
+
+1. Create a new component for launching draft from league page:
+   ```jsx
+   // LeagueDraft.js
+   import React, { useEffect, useState } from 'react';
+   import { useParams, useNavigate } from 'react-router-dom';
+   import { 
+     Box, Button, Text, useToast, 
+     Modal, ModalOverlay, ModalContent, 
+     ModalHeader, ModalBody, ModalFooter,
+     useDisclosure
+   } from '@chakra-ui/react';
+   import { useApi } from '../context/ApiContext';
+   import { useDraftRoom } from '../context/DraftRoomContext';
+   
+   const LeagueDraft = () => {
+     const { leagueId } = useParams();
+     const { getLeague, loading, error } = useApi();
+     const { isConnected, associateWithLeague } = useDraftRoom();
+     const [league, setLeague] = useState(null);
+     const { isOpen, onOpen, onClose } = useDisclosure();
+     const toast = useToast();
+     const navigate = useNavigate();
+     
+     useEffect(() => {
+       const fetchLeague = async () => {
+         try {
+           const data = await getLeague(leagueId);
+           setLeague(data);
+         } catch (error) {
+           console.error('Error fetching league:', error);
+         }
+       };
+       
+       fetchLeague();
+     }, [leagueId, getLeague]);
+     
+     const handleLaunchDraft = async () => {
+       if (!isConnected) {
+         toast({
+           title: 'Connection Error',
+           description: 'Not connected to draft server',
+           status: 'error',
+           duration: 3000,
+         });
+         return;
+       }
+       
+       // Associate draft with this league
+       const success = await associateWithLeague(leagueId);
+       
+       if (success) {
+         // Navigate to draft room
+         navigate('/draft-room');
+       } else {
+         toast({
+           title: 'Error',
+           description: 'Failed to start draft for this league',
+           status: 'error',
+           duration: 3000,
+         });
+       }
+     };
+     
+     if (loading) {
+       return <Text>Loading...</Text>;
+     }
+     
+     if (error) {
+       return <Text>Error: {error}</Text>;
+     }
+     
+     return (
+       <Box>
+         <Text fontSize="xl" mb={4}>
+           Start Draft for {league?.name}
+         </Text>
+         
+         <Button 
+           colorScheme="blue" 
+           onClick={onOpen}
+           isDisabled={!isConnected}
+         >
+           Launch Draft Room
+         </Button>
+         
+         <Modal isOpen={isOpen} onClose={onClose}>
+           <ModalOverlay />
+           <ModalContent>
+             <ModalHeader>Confirm Draft Start</ModalHeader>
+             <ModalBody>
+               Are you sure you want to start a draft for {league?.name}?
+               All team owners should be online for best results.
+             </ModalBody>
+             <ModalFooter>
+               <Button variant="ghost" mr={3} onClick={onClose}>
+                 Cancel
+               </Button>
+               <Button colorScheme="blue" onClick={handleLaunchDraft}>
+                 Start Draft
+               </Button>
+             </ModalFooter>
+           </ModalContent>
+         </Modal>
+       </Box>
+     );
+   };
+   
+   export default LeagueDraft;
+   ```
+
+### Step 7: Add League Model Update
+
+1. Update League model to include draft status:
+   ```javascript
+   const leagueSchema = new mongoose.Schema({
+     // Existing fields
+     
+     // Add draft-related fields
+     draftComplete: {
+       type: Boolean,
+       default: false
+     },
+     draftDate: {
+       type: Date,
+       default: null
+     }
+   });
+   ```
+
+### Step 8: Add Menu Option to League Details Page
+
+1. Add "Start Draft" button to League details page:
+   ```jsx
+   // In LeagueDetail.js
+   <Button
+     colorScheme="blue"
+     leftIcon={<FaDraftingCompass />}
+     onClick={() => navigate(`/leagues/${league.id}/draft`)}
+     isDisabled={league.draftComplete}
+     mb={4}
+   >
+     {league.draftComplete ? 'Draft Completed' : 'Start Live Draft'}
+   </Button>
+   ```
+
+### Step 9: Update Routes to Include Draft Launch Page
+
+1. Add new route in App.js:
+   ```jsx
+   <Route path="/leagues/:leagueId/draft" element={
+     <ProtectedRoute>
+       <LeagueRequiredRoute>
+         <LeagueDraft />
+       </LeagueRequiredRoute>
+     </ProtectedRoute>
+   } />
+   ```
+
+## Testing Plan
+
+1. Test league association API endpoint
+2. Test draft completion handler
+3. Test saving draft results to league
+4. Test frontend integration with draft room
+5. End-to-end test of full draft flow
+
+## Implementation Sequence
+
+1. Add draft-league association fields
+2. Create backend API endpoints
+3. Update draftRoom to handle completion
+4. Create frontend components
+5. Update routing
+6. Test complete flow
+
+This integration maintains the existing architecture while adding new connectivity between the draft and league systems. The focus is on making minimal changes to the existing code while adding the required integration points.

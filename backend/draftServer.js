@@ -23,8 +23,8 @@ class DraftRoom {
     // Ensure data directory exists
     fs.ensureDirSync(this.dataDir);
     
-    // Load existing draft state if available
-    this.loadDraftState();
+    // Reset draft state on server restart (don't load previous state)
+    this.resetDraftStateFile();
   }
   
   loadDraftState() {
@@ -37,6 +37,16 @@ class DraftRoom {
     } catch (error) {
       console.error('Error loading draft state:', error);
       // Continue with empty draft state
+    }
+  }
+  
+  resetDraftStateFile() {
+    try {
+      // Write the empty draft state to the file
+      fs.writeFileSync(this.draftStatePath, JSON.stringify(this.draftState, null, 2));
+      console.log('Reset draft state file');
+    } catch (error) {
+      console.error('Error resetting draft state file:', error);
     }
   }
   
@@ -299,8 +309,80 @@ class DraftRoom {
   }
 }
 
-// Create and start the draft room server
+// Set up both secure and non-secure WebSocket servers
 const draftRoom = new DraftRoom();
+
+// Set up regular WebSocket server first
 draftRoom.setupWebSocketServer(8080);
+
+// Now try to set up a secure WebSocket server with SSL
+const fs_sync = require('fs');
+const https = require('https');
+
+try {
+  // Create HTTPS server with local copies of SSL certificates
+  const sslOptions = {
+    cert: fs_sync.readFileSync(path.join(__dirname, 'certs/fullchain.pem')),
+    key: fs_sync.readFileSync(path.join(__dirname, 'certs/privkey.pem'))
+  };
+  
+  // Create HTTPS server
+  const httpsServer = https.createServer(sslOptions);
+  
+  // Start HTTPS server on a different port (8443 is commonly used for secure WebSockets)
+  httpsServer.listen(8443, () => {
+    console.log('Secure WebSocket server running on port 8443');
+    
+    // Create WebSocket server on top of HTTPS server
+    const wss = new WebSocket.Server({ server: httpsServer });
+    
+    // Handle connections the same way
+    wss.on('connection', (ws) => {
+      console.log('New secure client connected to draft room');
+      
+      ws.on('message', (message) => {
+        try {
+          const data = JSON.parse(message);
+          draftRoom.handleMessage(ws, data);
+        } catch (error) {
+          console.error('Error handling secure message:', error);
+        }
+      });
+      
+      ws.on('close', () => {
+        if (draftRoom.clients.has(ws)) {
+          const userData = draftRoom.clients.get(ws);
+          console.log(`Secure client disconnected: ${userData.username}`);
+          draftRoom.clients.delete(ws);
+          draftRoom.broadcastParticipantStatus();
+        }
+      });
+      
+      // Send current draft state to new client
+      ws.send(JSON.stringify({
+        type: 'draftState',
+        data: draftRoom.draftState
+      }));
+    });
+    
+    // Add this WebSocket server's clients to the broadcast list
+    const originalBroadcast = draftRoom.broadcast;
+    draftRoom.broadcast = function(message) {
+      // Call original broadcast for the first WebSocket server
+      originalBroadcast.call(draftRoom, message);
+      
+      // Also broadcast to this secure WebSocket server
+      wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message);
+        }
+      });
+    };
+  });
+  
+  console.log('Secure WebSocket server initialized successfully');
+} catch (err) {
+  console.error('Failed to initialize secure WebSocket server:', err.message);
+}
 
 module.exports = draftRoom;

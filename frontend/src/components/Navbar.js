@@ -154,11 +154,11 @@ const Navbar = () => {
         alignItems="center"
         maxW="container.xl"
         mx="auto"
-        px={4}
-        py={3}
+        px={{ base: 2, md: 4 }}
+        py={{ base: 2, md: 3 }}
       >
         <Flex alignItems="center">
-          <Heading size="md" as={RouterLink} to="/" color="white">
+          <Heading size={{ base: "sm", md: "md" }} as={RouterLink} to="/" color="white">
             <Box as="span" color="yellow.300">Fantasy</Box> LoL
           </Heading>
           

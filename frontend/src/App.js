@@ -75,8 +75,9 @@ function App() {
                   <Box 
                     maxW="container.xl" 
                     mx="auto" 
-                    px={{ base: 4, md: 6 }} 
-                    py={{ base: 6, md: 8 }}
+                    px={{ base: 2, md: 6 }} 
+                    py={{ base: 2, md: 8 }}
+                    fontSize={{ base: "sm", md: "md" }}
                   >
                     <Routes>
                       <Route path="/" element={<Home />} />

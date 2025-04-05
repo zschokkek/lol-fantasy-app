@@ -1,8 +1,85 @@
 [
   {
-    "id": "d56caccc-b118-4784-80f4-ab76e034f5c6",
-    "username": "Oh man it’s lit",
-    "email": "nick.kramer3@gmail.com",
+    "id": "5e30cd24-0efa-4fad-a28b-9fd3ed7cb662",
+    "username": "Leof",
+    "email": "nattyleof@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "54954013-c5d6-4b7e-b14b-57feaa8287b6",
+    "username": "Carter",
+    "email": "cartermattyoung@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "77880462-48b0-43d3-b713-e64b50c6446f",
+    "username": "Mrpoop",
+    "email": "mrpoop@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "82b1ab2f-0c8f-42f5-a15e-ceb344e48fbb",
+    "username": "cadentraw",
+    "email": "chtraw@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "423566aa-0796-4ec2-a287-c77063258d36",
+    "username": "geoffpoop",
+    "email": "geoff@poop.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "815c02af-0426-44a3-a424-8f1432c3173a",
+    "username": "Mytest",
+    "email": "mytesterrrr@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "8fd81596-f820-4b20-bf12-e1204e1c6096",
+    "username": "KZ2",
+    "email": "kz2@gmail.com",
+    "teams": [],
+    "leagues": [],
+    "friends": [],
+    "isAdmin": false,
+    "avatar": "",
+    "status": "offline"
+  },
+  {
+    "id": "c19b8f9a-4ac9-40fd-844f-6e7b36903a47",
+    "username": "testthis2",
+    "email": "test@2222.com",
     "teams": [],
     "leagues": [],
     "friends": [],
